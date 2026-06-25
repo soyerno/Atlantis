@@ -48,6 +48,7 @@ Six acts, each with its name and its craft. Config-driven; runs with Claude Code
 
 ---
 
+<<<<<<< HEAD
 ## Requirements and Compatibility
 
 ### A. Claude Code (Original)
@@ -64,6 +65,28 @@ Atlantis is also natively compatible with the **Antigravity (Gemini)** ecosystem
 
 ### With Claude Code
 
+=======
+## Requisitos y Compatibilidad
+
+### A. Claude Code (Original)
+- **Claude Code** con la herramienta `Workflow` disponible.
+- Uno o más **subagentes** (los Artesanos) definidos en `.claude/agents/`. Cada `profile` y cada `guard.profile` de tu config debe existir como un agente ahí — ver [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md) para la forma.
+- Nada de servidores, dependencias ni build. Atlantis es **un solo archivo** (`atlantis.mjs`).
+
+### B. Gemini / Antigravity (Soporte Nativo)
+Atlantis también es compatible de forma nativa con el ecosistema de **Antigravity (Gemini)**, utilizando su sistema de **Personalizaciones (Skills)** y la orquestación paralela de subagentes.
+- **Entorno Antigravity** activo.
+- Configuración de la skill local detallada en [`integrations/antigravity/`](./integrations/antigravity/).
+
+## Uso
+
+### Con Claude Code
+
+
+1. **Cloná** este repo (o copiá `atlantis.mjs` a tu repo).
+2. **Definí tu roster** editando el bloque `CONFIG` arriba de [`atlantis.mjs`](./atlantis.mjs). Los scripts de `Workflow` corren sandboxeados (sin filesystem), así que la config **vive inline** en el script. [`atlantis.config.example.mjs`](./atlantis.config.example.mjs) es la *forma* a pegar ahí.
+3. **Corré la ciudad** con la herramienta `Workflow`, pasando tu petición como `args`:
+>>>>>>> origin/main
 
 ```js
 Workflow({ scriptPath: 'atlantis.mjs', args: 'fix the back button on the map' })
