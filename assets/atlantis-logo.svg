@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400" role="img" aria-label="Atlantis logo">
+  <defs>
+    <linearGradient id="abyss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0C2A3C"/>
+      <stop offset="1" stop-color="#05161F"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7E4A6"/>
+      <stop offset="0.5" stop-color="#E8B84B"/>
+      <stop offset="1" stop-color="#C2922B"/>
+    </linearGradient>
+  </defs>
+  <circle cx="200" cy="200" r="192" fill="url(#abyss)"/>
+  <circle cx="200" cy="200" r="178" fill="none" stroke="url(#gold)" stroke-width="6"/>
+  <circle cx="200" cy="200" r="162" fill="none" stroke="url(#gold)" stroke-width="1.5" opacity="0.5"/>
+  <!-- trident -->
+  <g stroke="url(#gold)" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="200" y1="150" x2="200" y2="288"/>
+    <line x1="156" y1="156" x2="244" y2="156"/>
+    <line x1="200" y1="92" x2="200" y2="156"/>
+    <path d="M156 156 Q156 104 178 92"/>
+    <path d="M244 156 Q244 104 222 92"/>
+  </g>
+  <g fill="url(#gold)" stroke="none">
+    <circle cx="200" cy="86" r="9"/>
+    <circle cx="176" cy="90" r="7"/>
+    <circle cx="224" cy="90" r="7"/>
+    <circle cx="200" cy="296" r="10"/>
+  </g>
+</svg>

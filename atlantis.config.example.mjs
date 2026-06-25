@@ -1,15 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Pecera · config de ejemplo.
+// Atlantis · config de ejemplo (la FORMA del bloque CONFIG).
 //
 // IMPORTANTE: los scripts de Workflow corren sandboxeados (sin filesystem), así que
-// la pecera NO importa este archivo en runtime. Esto es la FORMA de la config:
-// copiá este objeto al bloque `CONFIG` arriba de route-request.mjs.
+// Atlantis NO importa este archivo en runtime. Esto es la FORMA de la config:
+// copiá este objeto al bloque `CONFIG` arriba de atlantis.mjs.
 //
-// Cada `profile` y cada `guard.profile` debe existir como agente en .claude/agents/.
+// Cada `profile` (Artesano) y cada `guard.profile` (Guardián) debe existir como
+// agente en .claude/agents/.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default {
-  // (1) ROSTER — clave = nombre del agente, valor = qué cubre (una frase, sirve al router).
+  // (1) ROSTER DE ARTESANOS — clave = nombre del agente, valor = qué cubre (una frase, la lee el Oráculo).
   //     Elegí granularidad por preocupación, no por archivo. Una feature suele cruzar varios.
   profiles: {
     'mi-front': 'frontend: componentes, páginas, interacción de cliente, navegación, bugs visuales/UI',
@@ -20,9 +21,9 @@ export default {
     'mi-flow': 'integridad de flujos: un journey de varios pasos no se solapa, no repite lo ya pedido, no se contradice ni deja dead-ends',
   },
 
-  // (2) GUARDIANES — corren tras Despachar, auditan lo producido, NO cambian código.
+  // (2) GUARDIANES — corren tras los Artesanos, auditan lo producido, NO cambian código.
   //     always:true ⇒ siempre. when:(lanes)=>bool ⇒ condicional según qué se despachó.
-  //     Si una lane ya fue ruteada a ese perfil, su guardián no se re-corre (no duplica).
+  //     Si una lane ya fue ruteada a ese perfil, su Guardián no se re-corre (no duplica).
   guards: [
     { profile: 'mi-security', lens: 'SEGURIDAD', focus: 'auth, control de acceso, PII, secrets, deps/CVE', always: true },
     { profile: 'mi-docs', lens: 'DOCUMENTACIÓN', focus: 'lo que cambió quedó documentado; feature nueva sin spec; README desincronizado', always: true },
@@ -31,16 +32,16 @@ export default {
       when: (lanes) => lanes.some(l => ['mi-front'].includes(l.profile)) },
   ],
 
-  // (3) KICKOFF (opcional) — registro de arranque ANTES de despachar. null ⇒ se saltea.
+  // (3) HERALDOS (opcional) — registro de arranque ANTES de despachar. null ⇒ se saltea.
   kickoff: {
     profile: 'mi-kickoff',
     instructions:
       '1. Listá los tickets primero (no dupliques); creá el card de esta iniciativa en "En curso" con label de área.\n' +
-      '2. NO abras worktrees ni ramas: cada lane abre la suya. Indicá la convención de rama sugerida en la desc.\n' +
+      '2. NO abras worktrees ni ramas: cada Artesano abre la suya. Indicá la convención de rama sugerida en la desc.\n' +
       '3. NO toques el cierre (Hecho/archive/roadmap). NO push/PR/merge.',
   },
 
-  // (4) DISPATCH PREAMBLE (opcional) — disciplina de ejecución antepuesta a cada lane.
+  // (4) DISPATCH PREAMBLE (opcional) — disciplina de ejecución antepuesta a cada Artesano.
   dispatchPreamble:
     'EJECUCIÓN (sobreescribe el default del perfil):\n' +
     '- Si tu tarea es AUDITAR/reportar sin cambios de código: NO crees worktree ni PR. Devolvé el reporte (hallazgos, archivo:línea, severidad).\n' +
@@ -50,8 +51,8 @@ export default {
     '  3. Commiteá en tu branch. NO abras PR — el humano revisa y abre los PRs.\n' +
     '  4. Reportá honesto: branch creada, archivos tocados, salida de validación, qué quedó pendiente.',
 
-  // (5) DRY-RUN (opcional) — para VERIFICAR el orquestador sin side-effects: saltea el
-  //     kickoff y corre las lanes en modo-reporte (cero worktrees/ramas/commits/issues/cards).
+  // (5) MAREA BAJA / DRY-RUN (opcional) — para VERIFICAR la ciudad sin side-effects: saltea a los
+  //     Heraldos y corre los Artesanos en modo-reporte (cero worktrees/ramas/commits/issues/cards).
   //     Mejor pasalo por args en la corrida puntual — { args: { request: '...', dryRun: true } } —
   //     y dejá esto en false. Ponelo true acá solo si querés que TODA corrida sea ensayo.
   dryRun: false,

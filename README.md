@@ -1,133 +1,127 @@
-# 🐟 Pecera
+<p align="center">
+  <img src="./assets/atlantis-banner.svg" alt="Atlantis — la ciudad-orquestadora de agentes para Claude Code" width="100%">
+</p>
 
-**Un orquestador multi-agente config-driven para Claude Code.** Un único punto de entrada toma un pedido en lenguaje natural, lo rutea al/los agente(s) experto(s) que correspondan, los corre en paralelo (cada uno aislado), pasa el resultado por guardianes siempre-on con verificación adversarial, y funde todo en **un** veredicto.
+<p align="center">
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-E8B84B?style=flat-square"></a>
+  <img alt="Built for Claude Code" src="https://img.shields.io/badge/Claude%20Code-Workflow-0E3A4C?style=flat-square">
+  <img alt="Node ≥ 18" src="https://img.shields.io/badge/Node-%E2%89%A5%2018-126E82?style=flat-square">
+  <img alt="Zero dependencies" src="https://img.shields.io/badge/deps-0-1FA8A0?style=flat-square">
+  <a href="./README.en.md"><img alt="English" src="https://img.shields.io/badge/lang-EN-C2922B?style=flat-square"></a>
+</p>
 
-Es el patrón que Sakana AI productizó como **Fugu** (orquestador → pool intercambiable de expertos → verificación), pero como una pieza chica, sin servidor, que vive dentro de tu repo y corre con la herramienta `Workflow` de Claude Code.
+<p align="center"><b>Una petición en lenguaje natural entra a la ciudad. Sale un solo Decreto.</b><br>
+Un orquestador multi-agente <i>config-driven</i> para Claude Code — en un solo archivo, sin servidor, sin dependencias.</p>
 
-> 🇬🇧 English version: [README.en.md](./README.en.md)
+---
 
-> Nació adentro de **Firulapp** (una app de comunidad para dueños de mascotas) como el ruteador de su roster de agentes `firu-*`. Este repo lo extrae a una herramienta **portable y agnóstica del proyecto**: vos traés el roster y los guardianes en un archivo de config; la pecera trae la maquinaria.
+## Qué dolor resuelve
+
+Un solo agente que hace **todo** se satura: la ventana de contexto es memoria de trabajo, y cuando se llena el agente deriva de personaje, mezcla preocupaciones y se le cuelan errores que **nadie audita**. Y si querés repartir el trabajo entre varios agentes a mano, terminás reescribiendo el ruteo, el paralelismo y la verificación **en cada proyecto**.
+
+## Para qué
+
+Para que un pedido se reparta entre **especialistas con contexto fresco**, se **audite** con guardianes siempre-on, se **filtren los falsos bloqueantes** con un juicio adversarial, y todo se **reconcilie en un veredicto** — configurando un solo bloque, sin tocar el motor. El humano sigue decidiendo lo irreversible (mergear, deployar, publicar): Atlantis prepara y reconcilia, no manda a producción.
+
+## Cómo
+
+Seis actos, cada uno con su nombre y su oficio. Config-driven; corre con la herramienta `Workflow` de Claude Code.
+
+<p align="center">
+  <img src="./assets/architecture.svg" alt="Los seis actos de Atlantis" width="640">
+</p>
+
+| Acto | En la ciudad | Lo que hace de verdad |
+|---|---|---|
+| 1 · **El Oráculo** | lee la petición | un router LLM la reparte en *lanes* por experto + clasifica complejidad (trivial → corriente rápida) |
+| 2 · **Los Heraldos** | anuncian | *(opcional)* registran la iniciativa (ticket/card) antes de despachar |
+| 3 · **Los Artesanos** | construyen | un agente experto por lane, en paralelo, cada uno aislado en su worktree |
+| 4 · **Los Guardianes** | vigilan | auditan lo despachado — siempre-on + condicionales. No tocan código |
+| 5 · **Los tres Jueces** | sentencian | **Minos · Radamantis · Éaco** pesan cada 🔴; sobrevive solo por mayoría |
+| 6 · **El Decreto** | proclama | funde todo en un veredicto: ✅ hecho · 🔴 bloqueante · 🟡 pendiente · → próximo paso |
+
+### Tres corrientes para no pagar de más
+
+- **Corriente rápida.** Si el Oráculo marca la petición como trivial y mapea a ≤1 lane, se resuelve en línea: sin Heraldos, sin worktrees, sin Guardianes.
+- **Marea baja (dry-run).** Para probar la ciudad sin que haga nada real: los Artesanos corren en modo-reporte (cero worktrees/ramas/commits/issues) y solo dicen qué *harían*.
+- **El juicio de los Jueces.** Un Guardián de una sola voz puede sobre-severizar o alucinar un 🔴 que frena al humano. Antes del Decreto, cada 🔴 pasa por los tres Jueces (lentes repro/autoridad/severidad) que intentan refutarlo; sobrevive solo por mayoría. Los 🟡/⚪ no pagan esto, y sin ningún 🔴 el acto se saltea entero.
 
 ---
 
 ## Requisitos
 
 - **Claude Code** con la herramienta `Workflow` disponible.
-- Uno o más **subagentes** definidos en `.claude/agents/` de tu repo. Cada `profile` y cada `guard.profile` de tu config debe existir como un agente ahí. Ver [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md) para la forma de un agente.
-- Nada de servidores, dependencias ni build. La pecera es **un solo archivo** (`route-request.mjs`) que corrés con el `Workflow`.
-
----
-
-## Los cuatro trabajos
-
-```
-        pedido (string)
-            │
-   ┌────────▼─────────┐
-   │  1. CLASIFICAR   │  un router LLM parte el pedido en "lanes" (una por perfil)
-   │                  │  + clasifica complejidad (trivial → fast-path)
-   └────────┬─────────┘
-            │
-   ┌────────▼─────────┐
-   │  2. DESPACHAR    │  un agente por lane, EN PARALELO, cada uno aislado
-   │                  │  (worktree propio si toca código)
-   └────────┬─────────┘
-            │
-   ┌────────▼─────────┐
-   │  3. CUSTODIAR    │  guardianes SIEMPRE-ON auditan lo despachado
-   │                  │  (seguridad, docs, …) — red de seguridad, no opcional
-   │                  │  ↳ cada 🔴 pasa por escépticos adversariales:
-   │                  │    sobrevive solo si la mayoría lo confirma
-   └────────┬─────────┘
-            │
-   ┌────────▼─────────┐
-   │  4. SINTETIZAR   │  funde lanes + hallazgos VERIFICADOS en UN veredicto:
-   │                  │  ✅ hecho · 🔴 bloqueante · 🟡 pendiente · → próximo paso
-   └──────────────────┘
-```
-
-Tres atajos hacen que no pagues la maquinaria completa cuando no hace falta:
-
-- **Fast-path trivial.** Si el router marca el pedido como trivial y mapea a ≤1 lane, se resuelve en línea: sin registro, sin worktrees, sin guardianes.
-- **Guardianes condicionales.** Algunos guardianes corren siempre; otros solo si una lane tocó cierto tipo de trabajo (ej.: tocaste front ⇒ corre el guardián de flujos).
-- **Verificación adversarial de bloqueantes.** Un guardián de una sola voz puede sobre-severizar o alucinar un 🔴 que frena al humano. Antes de sintetizar, cada 🔴 pasa por 2-3 escépticos independientes (lentes repro/autoridad/severidad) que intentan refutarlo; sobrevive solo por mayoría. Los 🟡/⚪ no pagan esto, y sin ningún 🔴 la fase se saltea entera (cero costo extra).
-
-## Por qué importa (la idea de fondo)
-
-La ventana de contexto es memoria de trabajo. Un solo agente que hace todo se satura, deriva de personaje y mezcla preocupaciones. La pecera **reparte el trabajo entre especialistas con contexto fresco cada uno** y reconcilia al final — más parecido a cómo trabaja un equipo que a un prompt gigante. El humano sigue siendo quien decide lo irreversible (mergear, deployar, publicar): la pecera prepara y reconcilia, no manda a producción.
-
-### ¿Por qué no orquestar a mano con Claude Code?
-
-Claude Code ya trae los ladrillos: subagentes (la tool `Task`/`Agent`) y la tool `Workflow` para fan-out determinístico. La pecera **no los reemplaza, los usa** — es una receta opinada encima:
-
-| | Subagente suelto (`Task`) | `Workflow` crudo | **Pecera** |
-|---|---|---|---|
-| Decide **qué** experto toma el pedido | vos, a mano | vos, en el script | un **router LLM** según tu roster |
-| Corre varios en paralelo | no (uno por llamada) | sí, vos lo cableás | sí, **una lane por perfil** |
-| Red de seguridad post-trabajo | no | la que escribas | **guardianes always-on + condicionales** |
-| Frena falsos 🔴 | no | no | **verificación adversarial** (2-3 escépticos, mayoría) |
-| Reconcilia todo en un veredicto | no | la que escribas | **fase de síntesis** estructurada |
-| Configurable por proyecto | — | reescribís el script | **un bloque `CONFIG`**, el motor no se toca |
-
-Regla simple: si es **un** experto y **una** tarea, llamá un subagente y listo. La pecera gana cuando el pedido **cruza varias preocupaciones** y querés que algo **audite y reconcilie** lo que produjeron — sin reescribir la orquestación cada vez.
-
----
+- Uno o más **subagentes** (los Artesanos) definidos en `.claude/agents/`. Cada `profile` y cada `guard.profile` de tu config debe existir como un agente ahí — ver [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md) para la forma.
+- Nada de servidores, dependencias ni build. Atlantis es **un solo archivo** (`atlantis.mjs`).
 
 ## Uso
 
-1. **Cloná** este repo (o copiá `route-request.mjs` a tu repo).
-2. **Definí tu roster** editando el bloque `CONFIG` arriba de [`route-request.mjs`](./route-request.mjs). Los scripts de `Workflow` corren sandboxeados (sin acceso a filesystem), así que la config **vive inline** en el script, no en un archivo aparte que se importe. [`pecera.config.example.mjs`](./pecera.config.example.mjs) es la *forma* a pegar ahí. Tenés que tener los agentes correspondientes en `.claude/agents/`.
-3. **Corré el orquestador** con la herramienta `Workflow` de Claude Code, pasando tu pedido como `args`:
+1. **Cloná** este repo (o copiá `atlantis.mjs` a tu repo).
+2. **Definí tu roster** editando el bloque `CONFIG` arriba de [`atlantis.mjs`](./atlantis.mjs). Los scripts de `Workflow` corren sandboxeados (sin filesystem), así que la config **vive inline** en el script. [`atlantis.config.example.mjs`](./atlantis.config.example.mjs) es la *forma* a pegar ahí.
+3. **Corré la ciudad** con la herramienta `Workflow`, pasando tu petición como `args`:
 
 ```js
-Workflow({
-  scriptPath: 'route-request.mjs',
-  args: 'arreglá el botón de volver del mapa',
-})
+Workflow({ scriptPath: 'atlantis.mjs', args: 'arreglá el botón de volver del mapa' })
 ```
 
-El script rutea, despacha y sintetiza según tu `CONFIG`. El struct de retorno trae `{ request, dryRun, complexity, lanes, results, guards, verifiedBlockers, refutedBlockers, synthesis }`.
+El struct de retorno trae `{ request, dryRun, complexity, lanes, results, guards, verifiedBlockers, refutedBlockers, synthesis }`.
 
-### Dry-run (verificar sin side-effects)
-
-Para **probar el orquestador sin que haga nada real** — útil cuando iterás el ruteo o los prompts — pasá `dryRun`:
+**Marea baja** (verificar sin side-effects):
 
 ```js
-Workflow({ scriptPath: 'route-request.mjs', args: { request: 'tu pedido', dryRun: true } })
+Workflow({ scriptPath: 'atlantis.mjs', args: { request: 'tu pedido', dryRun: true } })
 ```
 
-Con `dryRun`: se saltea el `kickoff` (no crea card/issue) y las lanes corren en **modo-reporte** (sin worktrees, ramas, commits, issues ni cards) — solo dicen qué *harían*. Sin esto, correr el orquestador para testear dispara el pipeline **real**: crea tickets, ramas y commits de verdad.
-
-### Anatomía de la config (el bloque `CONFIG`)
+### Anatomía de la config
 
 ```js
-export default {
-  // (1) Roster: clave = nombre del agente en .claude/agents/, valor = qué cubre.
+const CONFIG = {
+  // (1) Artesanos: clave = nombre del agente en .claude/agents/, valor = qué cubre.
   profiles: {
-    'mi-front':  'frontend: componentes, navegación, bugs visuales',
-    'mi-back':   'backend: rutas API, dominio, persistencia',
-    'mi-docs':   'documentación: guías, READMEs, specs',
-    'mi-sec':    'seguridad: auth, rules, PII, prompt-injection',
+    'mi-front': 'frontend: componentes, navegación, bugs visuales',
+    'mi-back':  'backend: rutas API, dominio, persistencia',
+    'mi-docs':  'documentación: guías, READMEs, specs',
+    'mi-sec':   'seguridad: auth, rules, PII, prompt-injection',
   },
-
-  // (2) Guardianes: corren DESPUÉS de despachar, auditan lo producido.
+  // (2) Guardianes: corren DESPUÉS de los Artesanos, auditan lo producido.
   guards: [
-    // always: true ⇒ corre siempre. when: (lanes) => bool ⇒ corre condicional.
     { profile: 'mi-sec',  lens: 'SEGURIDAD', focus: 'auth, rules, PII', always: true },
-    { profile: 'mi-docs', lens: 'DOCS',      focus: 'lo que cambió quedó documentado', always: true },
     { profile: 'mi-flow', lens: 'FLUJO',     focus: 'el journey no se contradice',
       when: (lanes) => lanes.some(l => l.profile === 'mi-front') },
   ],
-
-  // (3) Opcional: un agente de "registro de arranque" (card de ticket, etc.) antes de despachar.
-  kickoff: { profile: 'mi-kickoff', instructions: 'creá el card en "En curso" y la convención de rama' },
-
-  // (4) Opcional: instrucciones de ejecución que se anteponen a cada lane (disciplina de tu repo).
-  dispatchPreamble: 'Si tu tarea implica código: worktree off origin/main fresco, validá verde, commiteá en branch, NO abras PR.',
+  // (3) Opcional: Heraldos (registro de arranque) antes de despachar.
+  kickoff: { profile: 'mi-kickoff', instructions: 'creá el card y la convención de rama' },
+  // (4) Opcional: disciplina de ejecución antepuesta a cada Artesano.
+  dispatchPreamble: 'Si tocás código: worktree off origin/main fresco, validá verde, commiteá en branch, NO abras PR.',
 }
 ```
 
-Todo lo demás (fast-path, paralelismo, verificación adversarial, struct de retorno, prompts del router/sintetizador) lo trae la pecera. Si no definís `guards`, no corre ninguno. Si no definís `kickoff`, se saltea el registro.
+Todo lo demás (corriente rápida, paralelismo, juicio adversarial, prompts del Oráculo/Decreto) lo trae Atlantis. Forma completa y comentada en [`atlantis.config.example.mjs`](./atlantis.config.example.mjs); un roster real de 14 Artesanos en [`examples/example.config.mjs`](./examples/example.config.mjs).
+
+---
+
+## ¿Por qué no orquestar a mano?
+
+Claude Code ya trae los ladrillos: subagentes (la tool `Task`/`Agent`) y la tool `Workflow` para fan-out determinístico. Atlantis **no los reemplaza, los usa** — es una receta opinada encima:
+
+| | Subagente suelto (`Task`) | `Workflow` crudo | **Atlantis** |
+|---|---|---|---|
+| Decide **qué** experto toma el pedido | vos, a mano | vos, en el script | **el Oráculo** según tu roster |
+| Corre varios en paralelo | no | sí, vos lo cableás | sí, **un Artesano por lane** |
+| Red de seguridad post-trabajo | no | la que escribas | **Guardianes always-on + condicionales** |
+| Frena falsos 🔴 | no | no | **los tres Jueces** (mayoría) |
+| Reconcilia en un veredicto | no | la que escribas | **el Decreto** |
+| Configurable por proyecto | — | reescribís el script | **un bloque `CONFIG`** |
+
+Regla simple: si es **un** experto y **una** tarea, llamá un subagente y listo. Atlantis gana cuando el pedido **cruza varias preocupaciones** y querés que algo **audite y reconcilie** lo que produjeron — sin reescribir la orquestación cada vez.
+
+---
+
+## Atlantis en Slack
+
+Atlantis puede **vivir en Slack** como un colaborador más: le hablás en un canal o hilo, dispara la ciudad, y el Decreto vuelve al hilo. Una respuesta en el mismo hilo **continúa la tarea** con el contexto vivo. Ver [`slack/`](./slack/) para el puente bidireccional y el reporte diario.
+
+> **Límite de privacidad (por diseño).** El Atlantis-de-Slack solo ve lo que se dice **en Slack**, más sus propios **reportes diarios** programados. Nunca observa ni refleja el trabajo de tu entorno local o de desarrollo: lo que pasa en tu máquina se queda en tu máquina. El agente se comporta como si **viviera en Slack** — no como un espejo de tu terminal.
 
 ---
 
@@ -135,11 +129,19 @@ Todo lo demás (fast-path, paralelismo, verificación adversarial, struct de ret
 
 | Archivo | Qué es |
 |---|---|
-| [`route-request.mjs`](./route-request.mjs) | El orquestador generalizado. No tocar para usarlo — se configura por afuera. |
-| [`pecera.config.example.mjs`](./pecera.config.example.mjs) | Config de ejemplo comentada. Copiá el objeto al bloque `CONFIG`. |
-| [`examples/firulapp.config.mjs`](./examples/firulapp.config.mjs) | Un roster real (20+ perfiles ruteables + guardianes) como caso de estudio. |
-| [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md) | La forma de un agente de `.claude/agents/`, como referencia. |
+| [`atlantis.mjs`](./atlantis.mjs) | El orquestador. No se toca para usarlo — se configura por afuera. |
+| [`atlantis.config.example.mjs`](./atlantis.config.example.mjs) | Config de ejemplo comentada (la forma del bloque `CONFIG`). |
+| [`examples/example.config.mjs`](./examples/example.config.mjs) | Un roster real (14 Artesanos + Guardianes) como caso de estudio. |
+| [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md) | La forma de un agente de `.claude/agents/`. |
+| [`slack/`](./slack/) | El puente bidireccional con Slack + el reporte diario. |
+| [`assets/`](./assets/) | Identidad visual (banner, logo, diagrama). |
 
-## Créditos
+## Contribuir
 
-Patrón inspirado en **Fugu** (Sakana AI, 2026). Implementación y generalización: el roster de agentes de Firulapp. Licencia [MIT](./LICENSE).
+Issues y PRs bienvenidos. Mantené el motor **agnóstico del proyecto** (toda la especificidad vive en el `CONFIG` del usuario) y respetá la voz de la ciudad. Ver [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+## Créditos y licencia
+
+El patrón **orquestador → pool intercambiable de expertos → verificación** lo productizó Sakana AI como **Fugu** (2026); Atlantis lo lleva a una pieza chica, sin servidor, que vive dentro de tu repo. Licencia [MIT](./LICENSE).
+
+<p align="center"><sub>🔱 Atlantis · una petición entra, un Decreto sale.</sub></p>

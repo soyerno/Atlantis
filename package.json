@@ -1,14 +1,17 @@
 {
-  "name": "pecera",
+  "name": "atlantis-orchestrator",
   "version": "1.0.0",
-  "description": "Config-driven multi-agent orchestrator for Claude Code: one natural-language request → routed to expert subagents, run isolated in parallel, audited by always-on guardians with adversarial verification, fused into one verdict.",
+  "description": "Atlantis — a config-driven multi-agent orchestrator for Claude Code. One natural-language petition is routed to expert Artisans, run isolated in parallel, audited by always-on Guardians, blockers weighed by the three Judges, and fused into one Decree.",
   "type": "module",
   "license": "MIT",
   "author": "Hernán (@soyerno)",
-  "homepage": "https://github.com/soyerno/pecera#readme",
+  "homepage": "https://github.com/soyerno/Atlantis#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/soyerno/pecera.git"
+    "url": "git+https://github.com/soyerno/Atlantis.git"
+  },
+  "bugs": {
+    "url": "https://github.com/soyerno/Atlantis/issues"
   },
   "keywords": [
     "claude",
@@ -17,11 +20,14 @@
     "orchestrator",
     "agents",
     "ai",
-    "workflow"
+    "workflow",
+    "atlantis"
   ],
   "files": [
-    "route-request.mjs",
-    "pecera.config.example.mjs",
-    "examples"
+    "atlantis.mjs",
+    "atlantis.config.example.mjs",
+    "examples",
+    "slack",
+    "assets"
   ]
 }
