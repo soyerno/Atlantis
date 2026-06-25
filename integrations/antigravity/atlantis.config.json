@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "agent-front": "frontend: componentes, páginas, navegación, bugs visuales/UI",
+    "agent-back": "backend: rutas API, dominio, persistencia, jobs, server actions",
+    "agent-docs": "documentación: guías, READMEs, specs, FAQ",
+    "agent-security": "seguridad: auth, control de acceso, PII, secrets, prompt-injection"
+  },
+  "guards": [
+    { "profile": "agent-security", "lens": "SEGURIDAD", "focus": "auth, control de acceso, PII, secrets, prompt-injection", "always": true },
+    { "profile": "agent-docs", "lens": "DOCUMENTACIÓN", "focus": "lo que cambió quedó documentado; nada sin guía/spec", "always": true }
+  ],
+  "kickoff": null,
+  "dispatchPreamble": "EJECUCIÓN:\n- Si tu tarea es AUDITAR/reportar sin cambios: NO crees worktree ni PR. Devolvé el reporte (hallazgos, archivo:línea, severidad).\n- Si implica CAMBIOS de código: creá tu worktree off origin/main fresco, hacé el cambio, corré la validación del repo hasta verde, commiteá en tu branch. NO abras PR."
+}

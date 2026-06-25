@@ -1,3 +1,5 @@
+import readline from 'readline';
+
 export const meta = {
   name: 'atlantis-orchestrator',
   description: 'Atlantis: toma una petición en lenguaje natural, la rutea al/los artesano(s) experto(s), los corre en paralelo aislados, los pasa por los Guardianes siempre-on (cada bloqueante lo pesan los tres Jueces) y funde todo en un Decreto. Config-driven (editá el bloque CONFIG).',
@@ -93,15 +95,175 @@ const ROUTE_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['profile', 'task', 'reason'],
+        required: ['profile', 'task', 'reason', 'score', 'model'],
         properties: {
           profile: { type: 'string', enum: Object.keys(PROFILES) },
           task: { type: 'string', description: 'El sub-pedido acotado y accionable para ESTE artesano.' },
           reason: { type: 'string', description: 'Por qué este artesano, en una frase.' },
+          score: { type: 'integer', minimum: 1, maximum: 5, description: 'Puntaje de complejidad de 1 a 5 (1=trivial/docs, 5=crítico/seguridad/arquitectura).' },
+          model: { type: 'string', description: 'Modelo recomendado para esta lane según el score (ej. gemini-1.5-flash para score 1-2, gemini-1.5-pro para score 3-4, claude-3-5-sonnet o gemini-2.5-pro para score 5).' },
         },
       },
     },
   },
+}
+
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  fgRed: '\x1b[31m',
+  fgGreen: '\x1b[32m',
+  fgYellow: '\x1b[33m',
+  fgBlue: '\x1b[34m',
+  fgCyan: '\x1b[36m',
+  bgBlue: '\x1b[44m',
+  bgCyan: '\x1b[46m',
+};
+
+async function confirmLanes(lanes) {
+  if (!process.stdin.isTTY) {
+    log('Oráculo', 'Entorno no interactivo detectado. Procediendo con el ruteo automático...');
+    return lanes;
+  }
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  const question = (query) => new Promise(resolve => rl.question(query, resolve));
+
+  while (true) {
+    console.log(`\n🔱 ${colors.bright}${colors.fgCyan}PROPUESTA DE RUTEO Y MODELOS (Sugerida por Oráculo)${colors.reset}`);
+    lanes.forEach((lane, idx) => {
+      console.log(`[${idx + 1}] Artesano: ${colors.bright}${lane.profile}${colors.reset}`);
+      console.log(`    ${colors.dim}Tarea:${colors.reset}  ${lane.task}`);
+      console.log(`    ${colors.dim}Razón:${colors.reset}  ${lane.reason}`);
+      console.log(`    ${colors.dim}Score:${colors.reset}  ${lane.score || 3}/5`);
+      console.log(`    ${colors.dim}Modelo:${colors.reset} ${colors.fgYellow}${lane.model || 'gemini-1.5-pro'}${colors.reset}`);
+    });
+    console.log(`====================================================`);
+
+    console.log(`Opciones: [c] Confirmar y continuar | [e] Editar lane | [a] Agregar lane | [d] Eliminar lane | [x] Cancelar`);
+    const ans = (await question('Selecciona una opción [c]: ')).trim().toLowerCase() || 'c';
+
+    if (ans === 'c') {
+      rl.close();
+      return lanes;
+    } else if (ans === 'x') {
+      rl.close();
+      log('Oráculo', 'Ejecución cancelada por el usuario.', colors.fgRed);
+      process.exit(0);
+    } else if (ans === 'a') {
+      console.log(`\n--- AGREGAR NUEVO ARTESANO ---`);
+      const profile = await question(`Nombre del perfil (disponibles: ${Object.keys(PROFILES).join(', ')}): `);
+      if (!PROFILES[profile]) {
+        console.log(`Perfil inválido: "${profile}"`);
+        continue;
+      }
+      const task = await question(`Tarea del artesano: `);
+      const reason = await question(`Razón de la selección: `);
+      const scoreInput = await question(`Score de dificultad (1-5) [3]: `);
+      const score = parseInt(scoreInput.trim(), 10) || 3;
+      const model = await question(`Modelo recomendado [gemini-1.5-pro]: `) || 'gemini-1.5-pro';
+      lanes.push({ profile, task, reason, score, model });
+    } else if (ans === 'd') {
+      const idxInput = await question(`Número del artesano a eliminar (1-${lanes.length}): `);
+      const idx = parseInt(idxInput.trim(), 10) - 1;
+      if (!isNaN(idx) && idx >= 0 && idx < lanes.length) {
+        lanes.splice(idx, 1);
+        console.log(`Artesano eliminado.`);
+      } else {
+        console.log(`Índice inválido.`);
+      }
+    } else if (ans === 'e') {
+      const idxInput = await question(`Número del artesano a editar (1-${lanes.length}): `);
+      const idx = parseInt(idxInput.trim(), 10) - 1;
+      if (!isNaN(idx) && idx >= 0 && idx < lanes.length) {
+        const lane = lanes[idx];
+        console.log(`\nEditando artesano [${lane.profile}] (deja en blanco para mantener actual):`);
+        const newTask = await question(`Tarea [${lane.task}]: `);
+        if (newTask.trim()) lane.task = newTask.trim();
+        const newReason = await question(`Razón [${lane.reason}]: `);
+        if (newReason.trim()) lane.reason = newReason.trim();
+        const newScoreInput = await question(`Score [${lane.score || 3}]: `);
+        const newScore = parseInt(newScoreInput.trim(), 10);
+        if (!isNaN(newScore)) lane.score = newScore;
+        const newModel = await question(`Modelo [${lane.model || 'gemini-1.5-pro'}]: `);
+        if (newModel.trim()) lane.model = newModel.trim();
+      } else {
+        console.log(`Índice inválido.`);
+      }
+    }
+  }
+}
+
+async function confirmGuards(guardsList) {
+  if (!process.stdin.isTTY) {
+    log('Guardianes', 'Entorno no interactivo. Procediendo con la auditoría automática...');
+    return guardsList;
+  }
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  const question = (query) => new Promise(resolve => rl.question(query, resolve));
+
+  while (true) {
+    console.log(`\n🔱 ${colors.bright}${colors.fgCyan}PROPUESTA DE GUARDIANES Y MODELOS (Para Auditoría)${colors.reset}`);
+    guardsList.forEach((guard, idx) => {
+      console.log(`[${idx + 1}] Guardián: ${colors.bright}${guard.profile} (${guard.lens})${colors.reset}`);
+      console.log(`    ${colors.dim}Enfoque:${colors.reset} ${guard.focus}`);
+      console.log(`    ${colors.dim}Modelo:${colors.reset}  ${colors.fgYellow}${guard.model || 'gemini-1.5-pro'}${colors.reset}`);
+    });
+    console.log(`====================================================`);
+
+    console.log(`Opciones: [c] Confirmar y continuar | [e] Editar guardián | [a] Agregar guardián | [d] Eliminar guardián | [x] Cancelar`);
+    const ans = (await question('Selecciona una opción [c]: ')).trim().toLowerCase() || 'c';
+
+    if (ans === 'c') {
+      rl.close();
+      return guardsList;
+    } else if (ans === 'x') {
+      rl.close();
+      log('Guardianes', 'Ejecución cancelada por el usuario.', colors.fgRed);
+      process.exit(0);
+    } else if (ans === 'a') {
+      console.log(`\n--- AGREGAR NUEVO GUARDIÁN ---`);
+      const profile = await question(`Nombre del perfil (ej. agent-security): `);
+      const lens = await question(`Lente (ej. SEGURIDAD): `);
+      const focus = await question(`Enfoque de auditoría: `);
+      const model = await question(`Modelo recomendado [gemini-1.5-pro]: `) || 'gemini-1.5-pro';
+      guardsList.push({ profile, lens, focus, model });
+    } else if (ans === 'd') {
+      const idxInput = await question(`Número del guardián a eliminar (1-${guardsList.length}): `);
+      const idx = parseInt(idxInput.trim(), 10) - 1;
+      if (!isNaN(idx) && idx >= 0 && idx < guardsList.length) {
+        guardsList.splice(idx, 1);
+        console.log(`Guardián eliminado.`);
+      } else {
+        console.log(`Índice inválido.`);
+      }
+    } else if (ans === 'e') {
+      const idxInput = await question(`Número del guardián a editar (1-${guardsList.length}): `);
+      const idx = parseInt(idxInput.trim(), 10) - 1;
+      if (!isNaN(idx) && idx >= 0 && idx < guardsList.length) {
+        const guard = guardsList[idx];
+        console.log(`\nEditando guardián [${guard.profile}] (deja en blanco para mantener actual):`);
+        const newLens = await question(`Lente [${guard.lens}]: `);
+        if (newLens.trim()) guard.lens = newLens.trim();
+        const newFocus = await question(`Enfoque [${guard.focus}]: `);
+        if (newFocus.trim()) guard.focus = newFocus.trim();
+        const newModel = await question(`Modelo [${guard.model || 'gemini-1.5-pro'}]: `);
+        if (newModel.trim()) guard.model = newModel.trim();
+      } else {
+        console.log(`Índice inválido.`);
+      }
+    }
+  }
 }
 
 // Hallazgos de Guardianes estructurados (no prosa): habilitan el gate de severidad por
@@ -144,17 +306,22 @@ const VERDICT_SCHEMA = {
 phase('Oráculo')
 const menu = Object.entries(PROFILES).map(([k, v]) => `- ${k}: ${v}`).join('\n')
 const routed = await agent(
-  `Sos el Oráculo de Atlantis. Leé la petición y decidí qué artesano(s) deben tomarla. ` +
+  `Sos el Oráculo de Atlantis. Leé la petición y decidí qué artesano(s) deben tomarla y qué modelo usar en base a un scoring de dificultad del veredicto del requerimiento.\n` +
   `Artesanos disponibles:\n${menu}\n\n` +
-  `Reglas: elegí SOLO los artesanos realmente necesarios (lo más simple que cubre el pedido). ` +
-  `Si la petición cruza lanes, devolvé varias con sub-tareas acotadas y NO solapadas. ` +
-  `Si ninguno encaja claro, devolvé lanes vacío. Llená SIEMPRE 'note' con una frase.\n` +
-  `Clasificá 'complexity': 'trivial' SOLO si es una pregunta respondible con el repo, un fix mínimo sin impacto de arquitectura/seguridad, o algo cosmético, y mapea a ≤1 lane. Si toca auth/seguridad/datos, o cruza ≥2 lanes, o dudás ⇒ 'standard'.\n\n` +
+  `Reglas:\n` +
+  `- Elegí SOLO los artesanos realmente necesarios (lo más simple que cubre el pedido).\n` +
+  `- Si la petición cruza lanes, devolvé varias con sub-tareas acotadas y NO solapadas.\n` +
+  `- Si ninguno encaja claro, devolvé lanes vacío. Llená SIEMPRE 'note' con una frase.\n` +
+  `- Asigná un 'score' de 1 a 5 para cada artesano.\n` +
+  `- Elige un 'model' correspondiente al score:\n` +
+  `  * Score 1-2: Usa 'gemini-1.5-flash' o 'claude-3-5-haiku' (tareas de bajo riesgo/docs)\n` +
+  `  * Score 3-4: Usa 'gemini-1.5-pro' o 'claude-3-5-sonnet' (tareas lógicas estándar)\n` +
+  `  * Score 5: Usa 'gemini-1.5-pro-high-effort' o 'claude-3-opus' (tareas críticas, seguridad o refactor)\n\n` +
   `PETICIÓN:\n${request}`,
   { label: 'oráculo', phase: 'Oráculo', schema: ROUTE_SCHEMA, effort: 'low' }
 )
 
-const lanes = (routed?.lanes ?? []).filter(l => PROFILES[l.profile])
+let lanes = (routed?.lanes ?? []).filter(l => PROFILES[l.profile])
 const complexity = routed?.complexity === 'trivial' ? 'trivial' : 'standard'
 
 // Corriente rápida: petición trivial que mapea a ≤1 lane se resuelve directo — sin Heraldos,
@@ -180,6 +347,12 @@ if (!lanes.length) {
   return { lanes: [], note: why }
 }
 log(`Ruteado a ${lanes.length} lane(s): ${lanes.map(l => l.profile).join(', ')}`)
+
+lanes = await confirmLanes(lanes);
+if (!lanes.length) {
+  log('Oráculo', 'No hay lanes seleccionadas después de la confirmación del usuario. Terminando.')
+  return { lanes: [], note: 'Lanes vaciadas por el usuario' }
+}
 
 // Heraldos: opcional. Registro de arranque ANTES de despachar (no retroactivo).
 // En marea baja se saltea (los Heraldos suelen crear card/issue = side-effects).
@@ -207,8 +380,8 @@ const DRYRUN_PREAMBLE =
 const dispatched = await parallel(lanes.map(lane => () =>
   agent(
     `${lane.task}\n\n(Petición original: ${request})\n\n${dryRun ? DRYRUN_PREAMBLE : PREAMBLE}`,
-    { label: lane.profile, phase: 'Artesanos', agentType: lane.profile }
-  ).then(out => ({ profile: lane.profile, task: lane.task, output: out }))
+    { label: lane.profile, phase: 'Artesanos', agentType: lane.profile, ...(lane.model ? { model: lane.model } : {}) }
+  ).then(out => ({ profile: lane.profile, task: lane.task, output: out, model: lane.model || null }))
 ))
 
 const results = dispatched.filter(r => r && r.output)
@@ -222,9 +395,13 @@ const alreadyRouted = new Set(lanes.map(l => l.profile))
 const producido = results.length
   ? results.map(r => `### [${r.profile}] ${r.task}\n${String(r.output).slice(0, 1800)}`).join('\n\n')
   : '(los artesanos no produjeron salida)'
-const GUARDS = GUARDS_CFG
+const GUARDS_INITIAL = GUARDS_CFG
   .filter(g => g.always || (typeof g.when === 'function' && g.when(lanes)))
   .filter(g => !alreadyRouted.has(g.profile))
+  .map(g => ({ ...g, model: g.model || 'gemini-1.5-pro' }))
+
+const GUARDS = await confirmGuards(GUARDS_INITIAL)
+
 const guards = await parallel(GUARDS.map(g => () =>
   agent(
     `Sos el Guardián ${g.lens} (${g.profile}) de Atlantis. Se despachó una petición y los artesanos produjeron esto:\n\n${producido}\n\n` +
@@ -233,8 +410,8 @@ const guards = await parallel(GUARDS.map(g => () =>
     `Si alguna lane creó una rama/worktree, revisá su diff vs origin/main y enfocá ahí. ` +
     `NO cambies código. Devolvé tus hallazgos ESTRUCTURADOS (uno por problema): severidad (🔴 bloquea / 🟡 pendiente / ⚪ informativo), archivo:línea, una afirmación verificable, y repro si aplica. ` +
     `Reservá 🔴 para lo que de verdad impide avanzar — va a pasar por los tres Jueces. Si está limpio, clean:true y findings vacío.`,
-    { label: `guardián:${g.profile}`, phase: 'Guardianes', agentType: g.profile, schema: GUARD_SCHEMA }
-  ).then(out => ({ profile: g.profile, lens: g.lens, findings: out?.findings ?? [], clean: out?.clean ?? false }))
+    { label: `guardián:${g.profile}`, phase: 'Guardianes', agentType: g.profile, schema: GUARD_SCHEMA, ...(g.model ? { model: g.model } : {}) }
+  ).then(out => ({ profile: g.profile, lens: g.lens, findings: out?.findings ?? [], clean: out?.clean ?? false, model: g.model || null }))
 ))
 const guardResults = guards.filter(Boolean)
 log(`Guardianes: ${guardResults.map(g => g.profile).join(' + ') || '(omitidos)'}`)
