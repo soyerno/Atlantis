@@ -48,13 +48,22 @@ Six acts, each with its name and its craft. Config-driven; runs with Claude Code
 
 ---
 
-## Requirements
+## Requirements and Compatibility
 
+### A. Claude Code (Original)
 - **Claude Code** with the `Workflow` tool available.
 - One or more **subagents** (the Artisans) in `.claude/agents/`. Every `profile` and every `guard.profile` must exist as an agent there — see [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md).
 - No servers, dependencies, or build. Atlantis is **a single file** (`atlantis.mjs`).
 
+### B. Gemini / Antigravity (Native Support)
+Atlantis is also natively compatible with the **Antigravity (Gemini)** ecosystem, leveraging its **Customizations (Skills)** and parallel subagent orchestration.
+- **Antigravity environment** active.
+- Local skill configuration detailed under [`integrations/antigravity/`](./integrations/antigravity/).
+
 ## Usage
+
+### With Claude Code
+
 
 ```js
 Workflow({ scriptPath: 'atlantis.mjs', args: 'fix the back button on the map' })
@@ -67,6 +76,16 @@ Workflow({ scriptPath: 'atlantis.mjs', args: { request: 'your request', dryRun: 
 ```
 
 Define your roster in the `CONFIG` block atop [`atlantis.mjs`](./atlantis.mjs). Commented shape: [`atlantis.config.example.mjs`](./atlantis.config.example.mjs). A real 14-Artisan roster: [`examples/example.config.mjs`](./examples/example.config.mjs).
+
+### With Gemini / Antigravity
+
+1. Copy the `.agents/` folder to the root of your project.
+2. Configure your roster in `integrations/antigravity/atlantis.config.json`.
+3. Ask the agent in the chat: *"Use Atlantis for [your request]"*.
+4. To run the CLI simulation harness in your terminal:
+     ```bash
+     node integrations/antigravity/atlantis-harness-gemini.mjs "Your development request"
+     ```
 
 ---
 
@@ -92,6 +111,18 @@ Rule of thumb: one expert + one task → just call a subagent. Atlantis wins whe
 Atlantis can **live in Slack** as one more collaborator: you talk to it in a channel or thread, it runs the city, and the Decree returns to the thread. A reply in the same thread **continues the task** with live context. See [`slack/`](./slack/).
 
 > **Privacy boundary (by design).** The Slack-side Atlantis only sees what's said **in Slack**, plus its own scheduled **daily reports**. It never observes or mirrors work in your local/dev environment: what happens on your machine stays on your machine. The agent behaves as if it **lives in Slack** — not as a mirror of your terminal.
+
+## Structure
+
+| File / Folder | What it is |
+|---|---|
+| [`atlantis.mjs`](./atlantis.mjs) | The orchestrator script. Configured inline or externally. |
+| [`atlantis.config.example.mjs`](./atlantis.config.example.mjs) | Commented config example. |
+| [`examples/example.config.mjs`](./examples/example.config.mjs) | A real 14-Artisan + Guardian config. |
+| [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md) | Structure of an agent profile. |
+| [`integrations/antigravity/`](./integrations/antigravity/) | Config and harness for Gemini Antigravity compatibility. |
+| [`slack/`](./slack/) | Two-way Slack bridge + daily reports. |
+| [`assets/`](./assets/) | Visual assets (banner, diagrams). |
 
 ## Credits & license
 
