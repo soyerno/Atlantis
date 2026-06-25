@@ -1,0 +1,27 @@
+{
+  "name": "pecera",
+  "version": "1.0.0",
+  "description": "Config-driven multi-agent orchestrator for Claude Code: one natural-language request → routed to expert subagents, run isolated in parallel, audited by always-on guardians with adversarial verification, fused into one verdict.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Hernán (@soyerno)",
+  "homepage": "https://github.com/soyerno/pecera#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/soyerno/pecera.git"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "multi-agent",
+    "orchestrator",
+    "agents",
+    "ai",
+    "workflow"
+  ],
+  "files": [
+    "route-request.mjs",
+    "pecera.config.example.mjs",
+    "examples"
+  ]
+}
