@@ -48,13 +48,22 @@ Seis actos, cada uno con su nombre y su oficio. Config-driven; corre con la herr
 
 ---
 
-## Requisitos
+## Requisitos y Compatibilidad
 
+### A. Claude Code (Original)
 - **Claude Code** con la herramienta `Workflow` disponible.
 - Uno o más **subagentes** (los Artesanos) definidos en `.claude/agents/`. Cada `profile` y cada `guard.profile` de tu config debe existir como un agente ahí — ver [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md) para la forma.
 - Nada de servidores, dependencias ni build. Atlantis es **un solo archivo** (`atlantis.mjs`).
 
+### B. Gemini / Antigravity (Soporte Nativo)
+Atlantis también es compatible de forma nativa con el ecosistema de **Antigravity (Gemini)**, utilizando su sistema de **Personalizaciones (Skills)** y la orquestación paralela de subagentes.
+- **Entorno Antigravity** activo.
+- Configuración de la skill local detallada en [`integrations/antigravity/`](./integrations/antigravity/).
+
 ## Uso
+
+### Con Claude Code
+
 
 1. **Cloná** este repo (o copiá `atlantis.mjs` a tu repo).
 2. **Definí tu roster** editando el bloque `CONFIG` arriba de [`atlantis.mjs`](./atlantis.mjs). Los scripts de `Workflow` corren sandboxeados (sin filesystem), así que la config **vive inline** en el script. [`atlantis.config.example.mjs`](./atlantis.config.example.mjs) es la *forma* a pegar ahí.
@@ -98,6 +107,16 @@ const CONFIG = {
 
 Todo lo demás (corriente rápida, paralelismo, juicio adversarial, prompts del Oráculo/Decreto) lo trae Atlantis. Forma completa y comentada en [`atlantis.config.example.mjs`](./atlantis.config.example.mjs); un roster real de 14 Artesanos en [`examples/example.config.mjs`](./examples/example.config.mjs).
 
+### Con Gemini / Antigravity
+
+1. Copia la carpeta `.agents/` a la raíz de tu proyecto.
+2. Configura tu roster en `integrations/antigravity/atlantis.config.json`.
+3. Pídele al agente en la ventana de chat: *"Usa Atlantis para [tu requerimiento]"*.
+4. Si deseas correr el simulador CLI local en tu terminal, ejecuta:
+   ```bash
+   node integrations/antigravity/atlantis-harness-gemini.mjs "Tu petición de desarrollo"
+   ```
+
 ---
 
 ## ¿Por qué no orquestar a mano?
@@ -133,6 +152,7 @@ Atlantis puede **vivir en Slack** como un colaborador más: le hablás en un can
 | [`atlantis.config.example.mjs`](./atlantis.config.example.mjs) | Config de ejemplo comentada (la forma del bloque `CONFIG`). |
 | [`examples/example.config.mjs`](./examples/example.config.mjs) | Un roster real (14 Artesanos + Guardianes) como caso de estudio. |
 | [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md) | La forma de un agente de `.claude/agents/`. |
+| [`integrations/antigravity/`](./integrations/antigravity/) | Configuración y harness para la compatibilidad con Gemini Antigravity. |
 | [`slack/`](./slack/) | El puente bidireccional con Slack + el reporte diario. |
 | [`assets/`](./assets/) | Identidad visual (banner, logo, diagrama). |
 
