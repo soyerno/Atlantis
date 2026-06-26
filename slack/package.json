@@ -5,6 +5,9 @@
   "description": "Slack bridge for Atlantis — Atlantis lives in Slack: petitions in threads, the Decree back, scheduled dailies. Never mirrors local/dev activity.",
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node bridge.mjs",
     "daily": "node daily-report.mjs"
