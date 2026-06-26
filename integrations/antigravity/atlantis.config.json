@@ -1,18 +1,26 @@
 {
   "profiles": {
-    "agent-ui-enhancer": "optimizador de prompts: interpreta requerimientos de UI y los expande con diseño premium y variables de color basados en el Engram",
-    "agent-ui": "diseño de interfaces: estructura semántica HTML, layouts responsivos CSS, animación suave y glassmorphism",
-    "agent-ui-critic": "auditoría estética (Abogado del Diablo): verifica contraste de color, fuentes premium, animaciones, UX fluida, SEO e IDs únicos",
-    "agent-front": "frontend: componentes, páginas, navegación, bugs visuales/UI",
-    "agent-back": "backend: rutas API, dominio, persistencia, jobs, server actions",
-    "agent-docs": "documentación: guías, READMEs, specs, FAQ",
-    "agent-security": "seguridad: auth, control de acceso, PII, secrets, prompt-injection"
+    "atl-po": "product owner: priorizar backlog contra el North Star (WALM), change proposal OpenSpec antes de codear, criterios Given/When/Then, scope in/out",
+    "atl-front": "frontend: componentes React, páginas, interacción de cliente, navegación, bugs visuales/UI",
+    "atl-back": "backend: rutas API, dominio, adapters de persistencia (Firestore/JSON), jobs, server actions",
+    "atl-ux": "usabilidad/a11y: simplificar flujo, touch targets, legibilidad, no abrumar (usuario 40+)",
+    "atl-flow": "integridad de flujos: un journey de varios pasos no se solapa, no repite lo ya pedido/derivable, no se contradice ni deja dead-ends",
+    "atl-brand": "design system: fidelidad de marca, tokens, identidad visual, assets/flyers, guardián de brand-drift",
+    "atl-docs": "documentación: guías, READMEs, specs OpenSpec, artículos evergreen, FAQ, llms.txt, PENDIENTES",
+    "atl-release": "release/CI-CD: semantic-release on-merge, Conventional Commits, harness pre-commit, deploy App Hosting",
+    "atl-qa": "QA: estrategia de prueba, suite e2e Playwright como guard del MVP, regresión del flujo crítico",
+    "atl-security": "firestore.rules, prompt-injection, SSRF, gating de acceso IA, PII",
+    "atl-perf": "performance: velocidad de carga, peso del bundle inicial, TTI, cascada de fetches al montar, lazy-load/code-splitting"
   },
   "guards": [
-    { "profile": "agent-ui-critic", "lens": "CRÍTICA ESTÉTICA (ABOGADO DEL DIABLO)", "focus": "contraste de color, tipografía premium, micro-animaciones, diseño responsivo, SEO e IDs únicos", "always": true },
-    { "profile": "agent-security", "lens": "SEGURIDAD", "focus": "auth, control de acceso, PII, secrets, prompt-injection", "always": true },
-    { "profile": "agent-docs", "lens": "DOCUMENTACIÓN", "focus": "lo que cambió quedó documentado; nada sin guía/spec", "always": true }
+    { "profile": "atl-security", "lens": "SEGURIDAD-DEFENSIVO", "focus": "firestore.rules, prompt-injection, gating IA, PII, secrets/deps/CVE, headers/CSP", "always": true },
+    { "profile": "atl-docs", "lens": "DOCUMENTACIÓN", "focus": "funcionalidad de usuario sin guía/FAQ/artículo, feature nueva/breaking sin spec OpenSpec, README/llms.txt/PENDIENTES desactualizados", "always": true },
+    { "profile": "atl-flow", "lens": "INTEGRIDAD-FLUJO", "focus": "un journey de varios pasos no se solapa ni repite lo ya pedido (sobre-petición), no se contradice entre caminos, no deja dead-ends ni loops de redirect", "always": false, "when": ["atl-front"] },
+    { "profile": "atl-perf", "lens": "PERFORMANCE", "focus": "peso del bundle inicial, cascada de fetches al montar de vistas no visibles, SSR en serie, render que bloquea el primer paint", "always": false, "when": ["atl-front", "atl-back"] }
   ],
-  "kickoff": null,
-  "dispatchPreamble": "EJECUCIÓN:\n- Si tu tarea es AUDITAR/reportar sin cambios: NO crees worktree ni PR. Devolvé el reporte (hallazgos, archivo:línea, severidad).\n- Si implica CAMBIOS de código: creá tu worktree off origin/main fresco, hacé el cambio, corré la validación del repo hasta verde, commiteá en tu branch. NO abras PR."
+  "kickoff": {
+    "profile": "atl-kickoff",
+    "instructions": "1. Registrar iniciativa: crear el card en el backlog de la iteración actual en \"En curso\" indicando el alcance y la convención de rama sugerida (feat/fix/chore-...). 2. NO abrir worktrees ni ramas desde el kickoff: cada lane abrirá la suya. 3. NO tocar ramas de producción ni push directo."
+  },
+  "dispatchPreamble": "EJECUCIÓN (sobreescribe el default del perfil):\n- Si tu tarea es AUDITAR/reportar sin cambios de código: NO crees worktree ni PR. Devolvé el reporte (hallazgos, archivo:línea, severidad) y sumá lo no-resuelto a docs/PENDIENTES.md.\n- Si tu tarea implica CAMBIOS de código:\n  1. Creá tu propio worktree off origin/main fresco: git fetch origin && git worktree add <ruta-fuera-del-repo> -b <branch> origin/main. No pises branches de otras sesiones.\n  2. Hacé los cambios; corré \"npm run validate\" hasta verde.\n  3. Commiteá en tu branch. NO abras PR — el usuario revisa y abre los PRs.\n  4. Reportá honesto: branch creada, archivos tocados, salida de validate, qué quedó pendiente."
 }

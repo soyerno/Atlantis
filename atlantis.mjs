@@ -21,35 +21,44 @@ export const meta = {
 // ║  Ejemplo de roster real: ./examples/example.config.mjs                      ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 const CONFIG = {
-  // (1) Roster de Artesanos. clave = nombre del agente en .claude/agents/, valor = qué cubre (una frase).
+  // (1) Roster de Artesanos de Atlantis.
   profiles: {
-    'agent-ui-enhancer': 'optimizador de prompts: interpreta requerimientos de UI y los expande con diseño premium y variables de color basados en el Engram',
-    'agent-ui': 'diseño de interfaces: estructura semántica HTML, layouts responsivos CSS, animación suave y glassmorphism',
-    'agent-ui-critic': 'auditoría estética (Abogado del Diablo): verifica contraste de color, fuentes premium, animaciones, UX fluida, SEO e IDs únicos',
-    'agent-front': 'frontend: componentes, páginas, navegación, bugs visuales/UI',
-    'agent-back': 'backend: rutas API, dominio, persistencia, jobs, server actions',
-    'agent-docs': 'documentación: guías, READMEs, specs, FAQ',
-    'agent-security': 'seguridad: auth, control de acceso, PII, secrets, prompt-injection',
+    'atl-po': 'product owner: priorizar backlog contra el North Star (WALM), change proposal OpenSpec antes de codear, criterios Given/When/Then, scope in/out',
+    'atl-front': 'frontend: componentes React, páginas, interacción de cliente, navegación, bugs visuales/UI',
+    'atl-back': 'backend: rutas API, dominio, adapters de persistencia (Firestore/JSON), jobs, server actions',
+    'atl-ux': 'usabilidad/a11y: simplificar flujo, touch targets, legibilidad, no abrumar (usuario 40+)',
+    'atl-flow': 'integridad de flujos: un journey de varios pasos no se solapa, no repite lo ya pedido/derivable, no se contradice ni deja dead-ends',
+    'atl-brand': 'design system: fidelidad de marca, tokens, identidad visual, assets/flyers, guardián de brand-drift',
+    'atl-docs': 'documentación: guías, READMEs, specs OpenSpec, artículos evergreen, FAQ, llms.txt, PENDIENTES',
+    'atl-release': 'release/CI-CD: semantic-release on-merge, Conventional Commits, harness pre-commit, deploy App Hosting',
+    'atl-qa': 'QA: estrategia de prueba, suite e2e Playwright como guard del MVP, regresión del flujo crítico',
+    'atl-security': 'firestore.rules, prompt-injection, SSRF, gating de acceso IA, PII',
+    'atl-perf': 'performance: velocidad de carga, peso del bundle inicial, TTI, cascada de fetches al montar, lazy-load/code-splitting'
   },
 
   // (2) Guardianes. Corren tras los Artesanos y auditan lo producido (no cambian código).
-  //     always:true ⇒ siempre. when:(lanes)=>bool ⇒ condicional según qué se despachó.
-  //     Si una lane ya fue ruteada a ese perfil, el Guardián no se re-corre.
   guards: [
-    { profile: 'agent-ui-critic', lens: 'CRÍTICA ESTÉTICA (ABOGADO DEL DIABLO)', focus: 'contraste de color, tipografía premium, micro-animaciones, diseño responsivo, SEO e IDs únicos', always: true },
-    { profile: 'agent-security', lens: 'SEGURIDAD', focus: 'auth, control de acceso, PII, secrets, prompt-injection', always: true },
-    { profile: 'agent-docs', lens: 'DOCUMENTACIÓN', focus: 'lo que cambió quedó documentado; nada sin guía/spec', always: true },
+    { profile: 'atl-security', lens: 'SEGURIDAD-DEFENSIVO', focus: 'firestore.rules, prompt-injection, gating IA, PII, secrets/deps/CVE, headers/CSP', always: true },
+    { profile: 'atl-docs', lens: 'DOCUMENTACIÓN', focus: 'funcionalidad de usuario sin guía/FAQ/artículo, feature nueva/breaking sin spec OpenSpec, README/llms.txt/PENDIENTES desactualizados', always: true },
+    { profile: 'atl-flow', lens: 'INTEGRIDAD-FLUJO', focus: 'un journey de varios pasos no se solapa ni repite lo ya pedido (sobre-petición), no se contradice entre caminos, no deja dead-ends ni loops de redirect', always: false, when: ['atl-front'] },
+    { profile: 'atl-perf', lens: 'PERFORMANCE', focus: 'peso del bundle inicial, cascada de fetches al montar de vistas no visibles, SSR en serie, render que bloquea el primer paint', always: false, when: ['atl-front', 'atl-back'] }
   ],
 
-  // (3) Opcional. Los Heraldos: registro de arranque antes de despachar (card de ticket, rama, etc.). null ⇒ se saltea.
-  kickoff: null,
-  // ej.: { profile: 'agent-kickoff', instructions: 'creá el card en "En curso" con label de área y la convención de rama; NO abras worktrees ni PR.' },
+  // (3) Opcional. Los Heraldos (atl-kickoff).
+  kickoff: {
+    profile: 'atl-kickoff',
+    instructions: '1. Registrar iniciativa: crear el card en el backlog de la iteración actual en "En curso" indicando el alcance y la convención de rama sugerida (feat/fix/chore-...). 2. NO abrir worktrees ni ramas desde el kickoff: cada lane abrirá la suya. 3. NO tocar ramas de producción ni push directo.'
+  },
 
-  // (4) Opcional. Disciplina de ejecución que se antepone a cada Artesano.
+  // (4) Preámbulo de ejecución.
   dispatchPreamble:
-    'EJECUCIÓN:\n' +
-    '- Si tu tarea es AUDITAR/reportar sin cambios: NO crees worktree ni PR. Devolvé el reporte (hallazgos, archivo:línea, severidad).\n' +
-    '- Si implica CAMBIOS de código: creá tu worktree off origin/main fresco (git fetch origin && git worktree add <ruta-fuera-del-repo> -b <branch> origin/main), hacé el cambio, corré la validación del repo hasta verde, commiteá en tu branch. NO abras PR — el humano revisa y abre los PRs. Reportá honesto: branch, archivos, salida de validación, qué quedó pendiente.',
+    'EJECUCIÓN (sobreescribe el default del perfil):\n' +
+    '- Si tu tarea es AUDITAR/reportar sin cambios de código: NO crees worktree ni PR. Devolvé el reporte (hallazgos, archivo:línea, severidad) y sumá lo no-resuelto a docs/PENDIENTES.md.\n' +
+    '- Si tu tarea implica CAMBIOS de código:\n' +
+    '  1. Creá tu propio worktree off origin/main fresco: git fetch origin && git worktree add <ruta-fuera-del-repo> -b <branch> origin/main. No pises branches de otras sesiones.\n' +
+    '  2. Hacé los cambios; corré "npm run validate" hasta verde.\n' +
+    '  3. Commiteá en tu branch. NO abras PR — el usuario revisa y abre los PRs.\n' +
+    '  4. Reportá honesto: branch creada, archivos tocados, salida de validate, qué quedó pendiente.'
 }
 // ╚══════════════════════════════════════════════ fin CONFIG ═══════════════════╝
 
@@ -84,8 +93,11 @@ if (!Object.keys(PROFILES).length) {
 const dryRun = (typeof ARGS === 'object' && ARGS?.dryRun === true) || CONFIG.dryRun === true
 if (dryRun) log('MAREA BAJA (dry-run): sin Heraldos, Artesanos en modo-reporte (cero side-effects).')
 
-const useFreeModels = (typeof ARGS === 'object' && ARGS?.freeModels === true) || CONFIG.useFreeModels === true || (typeof process !== 'undefined' && process.argv && (process.argv.includes('--free-models') || process.argv.includes('-f')));
-if (useFreeModels) log('MODELOS GRATUITOS: Se forzará el uso de modelos gratuitos (gemini-1.5-flash / gemini-2.5-flash).')
+const usePaidModels = (typeof ARGS === 'object' && ARGS?.paidModels === true) || CONFIG.usePaidModels === true || (typeof process !== 'undefined' && process.argv && (process.argv.includes('--paid-models') || process.argv.includes('-p')));
+const useFreeModels = !usePaidModels && ((typeof ARGS === 'object' && ARGS?.freeModels === true) || CONFIG.useFreeModels === true || (typeof process !== 'undefined' && process.argv && (process.argv.includes('--free-models') || process.argv.includes('-f'))));
+
+if (usePaidModels) log('MODELOS PAGOS: Se forzará el uso de modelos pagos (gemini-1.5-pro / gemini-2.5-pro / claude-3-5-sonnet).');
+if (useFreeModels) log('MODELOS GRATUITOS: Se forzará el uso de modelos gratuitos (gemini-1.5-flash / gemini-2.5-flash).');
 
 const ROUTE_SCHEMA = {
   type: 'object',
@@ -164,7 +176,7 @@ async function confirmLanes(lanes) {
     });
     console.log(`====================================================`);
 
-    console.log(`Opciones: [c] Confirmar | [e] Editar lane | [a] Agregar lane | [d] Eliminar lane | [f] Forzar modelos gratuitos | [x] Cancelar`);
+    console.log(`Opciones: [c] Confirmar | [e] Editar lane | [a] Agregar lane | [d] Eliminar lane | [f] Forzar modelos gratuitos | [p] Forzar modelos pagos | [x] Cancelar`);
     const ans = (await question('Selecciona una opción [c]: ')).trim().toLowerCase() || 'c';
 
     if (ans === 'c') {
@@ -179,6 +191,11 @@ async function confirmLanes(lanes) {
         lane.model = lane.score <= 2 ? 'gemini-1.5-flash' : 'gemini-2.5-flash';
       });
       console.log("Se han forzado modelos gratuitos para todos los artesanos.");
+    } else if (ans === 'p') {
+      lanes.forEach(lane => {
+        lane.model = lane.score <= 2 ? 'gemini-1.5-pro' : 'gemini-2.5-pro';
+      });
+      console.log("Se han forzado modelos pagos para todos los artesanos.");
     } else if (ans === 'a') {
       console.log(`\n--- AGREGAR NUEVO ARTESANO ---`);
       const profile = await question(`Nombre del perfil (disponibles: ${Object.keys(PROFILES).join(', ')}): `);
@@ -255,7 +272,7 @@ async function confirmGuards(guardsList) {
     });
     console.log(`====================================================`);
 
-    console.log(`Opciones: [c] Confirmar | [e] Editar guardián | [a] Agregar guardián | [d] Eliminar guardián | [f] Forzar modelos gratuitos | [x] Cancelar`);
+    console.log(`Opciones: [c] Confirmar | [e] Editar guardián | [a] Agregar guardián | [d] Eliminar guardián | [f] Forzar modelos gratuitos | [p] Forzar modelos pagos | [x] Cancelar`);
     const ans = (await question('Selecciona una opción [c]: ')).trim().toLowerCase() || 'c';
 
     if (ans === 'c') {
@@ -270,6 +287,11 @@ async function confirmGuards(guardsList) {
         guard.model = 'gemini-1.5-flash';
       });
       console.log("Se han forzado modelos gratuitos para todos los guardianes.");
+    } else if (ans === 'p') {
+      guardsList.forEach(guard => {
+        guard.model = 'gemini-1.5-pro';
+      });
+      console.log("Se han forzado modelos pagos para todos los guardianes.");
     } else if (ans === 'a') {
       console.log(`\n--- AGREGAR NUEVO GUARDIÁN ---`);
       const profile = await question(`Nombre del perfil (ej. agent-security): `);
@@ -367,7 +389,7 @@ const routed = await agent(
   `  * Score 3-4: Usa 'gemini-1.5-pro' o 'claude-3-5-sonnet' (tareas lógicas estándar)\n` +
   `  * Score 5: Usa 'gemini-1.5-pro-high-effort' o 'claude-3-opus' (tareas críticas, seguridad o refactor)\n\n` +
   `PETICIÓN:\n${request}`,
-  { label: 'oráculo', phase: 'Oráculo', schema: ROUTE_SCHEMA, effort: 'low' }
+  { label: 'oráculo', phase: 'Oráculo', schema: ROUTE_SCHEMA, effort: 'low', model: usePaidModels ? 'gemini-1.5-pro' : (useFreeModels ? 'gemini-1.5-flash' : undefined) }
 )
 
 let lanes = (routed?.lanes ?? []).filter(l => PROFILES[l.profile])
@@ -375,11 +397,15 @@ if (useFreeModels) {
   lanes.forEach(l => {
     l.model = l.score <= 2 ? 'gemini-1.5-flash' : 'gemini-2.5-flash';
   });
+} else if (usePaidModels) {
+  lanes.forEach(l => {
+    l.model = l.score <= 2 ? 'gemini-1.5-pro' : 'gemini-2.5-pro';
+  });
 }
 const complexity = routed?.complexity === 'trivial' ? 'trivial' : 'standard'
 
 const requestLower = request.toLowerCase();
-const hasUiLane = lanes.some(l => l.profile === 'agent-ui' || l.profile === 'agent-front');
+const hasUiLane = lanes.some(l => ['atl-front', 'atl-ux', 'atl-brand'].includes(l.profile));
 const isUiTask = hasUiLane || ['front', 'ui', 'botón', 'visual', 'pantalla', 'componente', 'css', 'html', 'diseño', 'login', 'layout', 'glassmorphism'].some(k => requestLower.includes(k));
 
 let finalRequest = request;
@@ -406,7 +432,7 @@ if (isUiTask) {
     
     const enhancedResponse = await agent(
       `${systemInstruction}\n\n${prompt}`,
-      { label: 'ui-enhancer', phase: 'Oráculo', effort: 'low' }
+      { label: 'ui-enhancer', phase: 'Oráculo', effort: 'low', model: usePaidModels ? 'gemini-1.5-pro' : (useFreeModels ? 'gemini-1.5-flash' : undefined) }
     );
     if (enhancedResponse) {
       finalRequest = enhancedResponse.trim();
@@ -471,7 +497,7 @@ const DRYRUN_PREAMBLE =
   'MAREA BAJA (verificación): NO ejecutes side-effects. Prohibido crear worktrees, ramas, commits, ' +
   'PRs, issues, cards o escribir archivos. SOLO analizá y reportá qué HARÍAS (plan + archivos que tocarías + riesgos). Es un ensayo, no la corrida real.'
 const dispatched = await parallel(lanes.map(lane => () => {
-  const taskPrompt = (lane.profile === 'agent-ui' || lane.profile === 'agent-front')
+  const taskPrompt = (['atl-front', 'atl-ux', 'atl-brand'].includes(lane.profile))
     ? `${lane.task}\n\nEspecificación de UI Enhancer:\n${finalRequest}`
     : lane.task;
   return agent(
@@ -492,9 +518,17 @@ const producido = results.length
   ? results.map(r => `### [${r.profile}] ${r.task}\n${String(r.output).slice(0, 1800)}`).join('\n\n')
   : '(los artesanos no produjeron salida)'
 const GUARDS_INITIAL = GUARDS_CFG
-  .filter(g => g.always || (typeof g.when === 'function' && g.when(lanes)))
+  .filter(g => {
+    if (g.always) return true;
+    if (typeof g.when === 'function') return g.when(lanes);
+    if (Array.isArray(g.when)) {
+      const activeProfiles = new Set(lanes.map(l => l.profile));
+      return g.when.some(p => activeProfiles.has(p));
+    }
+    return false;
+  })
   .filter(g => !alreadyRouted.has(g.profile))
-  .map(g => ({ ...g, model: useFreeModels ? 'gemini-1.5-flash' : (g.model || 'gemini-1.5-pro') }))
+  .map(g => ({ ...g, model: useFreeModels ? 'gemini-1.5-flash' : (usePaidModels ? 'gemini-1.5-pro' : (g.model || 'gemini-1.5-pro')) }))
 
 const GUARDS = await confirmGuards(GUARDS_INITIAL)
 
@@ -537,7 +571,7 @@ if (blockers.length) {
         `\nPetición original: ${request}\n\n` +
         `Verificá contra el repo (Read/Grep; git diff vs origin/main si una lane creó rama). ` +
         `Sesgo por defecto: refuted=true ante la duda — un 🔴 solo se sostiene si lo CONFIRMÁS. NO cambies código.`,
-        { label: `juez:${b.guard}`, phase: 'Jueces', agentType: b.guard, effort: 'high', schema: VERDICT_SCHEMA }
+        { label: `juez:${b.guard}`, phase: 'Jueces', agentType: b.guard, effort: 'high', schema: VERDICT_SCHEMA, model: usePaidModels ? 'gemini-1.5-pro' : (useFreeModels ? 'gemini-1.5-flash' : undefined) }
       )
     )).then(vs => {
       const votes = vs.filter(Boolean)
@@ -579,7 +613,7 @@ const synthesis = await agent(
   `3. 🟡 PENDIENTE: lo no resuelto.\n` +
   `4. → PRÓXIMO PASO para el humano (que es quien abre/mergea los PRs).\n` +
   `NO re-despaches trabajo, NO abras ni mergees PRs. Solo reconciliá lo que ya hay.`,
-  { label: 'decreto', phase: 'Decreto', effort: 'high' }
+  { label: 'decreto', phase: 'Decreto', effort: 'high', model: usePaidModels ? 'gemini-1.5-pro' : (useFreeModels ? 'gemini-1.5-flash' : undefined) }
 )
 log('Decreto emitido.')
 

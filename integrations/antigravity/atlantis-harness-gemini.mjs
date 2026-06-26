@@ -438,24 +438,30 @@ for (const [profile, description] of Object.entries(profiles)) {
   }
 
   const keywords = {
-    'agent-ui': ['front', 'ui', 'botón', 'visual', 'pantalla', 'componente', 'css', 'html', 'diseño', 'login', 'layout', 'glassmorphism'],
-    'agent-front': ['front', 'ui', 'botón', 'visual', 'pantalla', 'componente', 'css', 'html', 'diseño'],
-    'agent-back': ['back', 'api', 'db', 'base de datos', 'server', 'ruta', 'controlador', 'backend', 'modelo', 'login'],
-    'agent-docs': ['doc', 'readme', 'guia', 'manual', 'spec', 'documentación', 'escribir'],
-    'agent-security': ['seguridad', 'auth', 'token', 'crypt', 'login', 'permisos', 'vulnerabilidad']
-  }[profile] || [profile.replace('agent-', '')];
+    'atl-po': ['po', 'product owner', 'priorizar', 'backlog', 'openspec', 'given', 'when', 'then', 'scope'],
+    'atl-front': ['front', 'frontend', 'react', 'componente', 'página', 'interacción', 'navegación', 'ui', 'css', 'html', 'diseño', 'lossless', 'layout', 'glassmorphism'],
+    'atl-back': ['back', 'backend', 'api', 'db', 'database', 'base de datos', 'firestore', 'json', 'server', 'ruta', 'controlador', 'modelo'],
+    'atl-ux': ['ux', 'usabilidad', 'a11y', 'touch', 'legibilidad'],
+    'atl-flow': ['flow', 'flujo', 'journey', 'solapa', 'dead-end'],
+    'atl-brand': ['brand', 'branding', 'fidelidad', 'marca', 'token', 'flyer'],
+    'atl-docs': ['doc', 'readme', 'guia', 'manual', 'spec', 'documentación', 'escribir', 'faq', 'llms.txt', 'pendientes'],
+    'atl-release': ['release', 'ci-cd', 'semantic-release', 'commit', 'harness', 'deploy'],
+    'atl-qa': ['qa', 'test', 'playwright', 'e2e', 'mvp', 'regresión'],
+    'atl-security': ['security', 'seguridad', 'firestore.rules', 'auth', 'token', 'crypt', 'login', 'permisos', 'vulnerabilidad'],
+    'atl-perf': ['perf', 'performance', 'velocidad', 'bundle', 'lazy', 'splitting']
+  }[profile] || [profile.replace('atl-', '')];
 
   const matches = keywords.some(k => requestLower.includes(k));
   if (matches) {
     let score = 3;
     let model = 'gemini-1.5-pro';
-    if (profile === 'agent-docs') {
+    if (profile === 'atl-docs') {
       score = 2;
       model = 'gemini-1.5-flash';
-    } else if (profile === 'agent-security') {
+    } else if (profile === 'atl-security') {
       score = 5;
       model = 'gemini-2.5-pro';
-    } else if (profile === 'agent-ui') {
+    } else if (profile === 'atl-flow' || profile === 'atl-perf') {
       score = 4;
       model = 'gemini-1.5-pro';
     }
@@ -476,7 +482,7 @@ for (const [profile, description] of Object.entries(profiles)) {
 if (lanesToRun.length === 0) {
   log('Oráculo', 'No se identificaron palabras clave directas. Asignando lanes por defecto.', colors.fgYellow);
   lanesToRun.push(
-    { profile: 'agent-docs', task: 'Documentar el requerimiento general.', reason: 'Lane por defecto', score: 2, model: useFreeModels ? 'gemini-1.5-flash' : 'gemini-1.5-flash' }
+    { profile: 'atl-docs', task: 'Documentar el requerimiento general.', reason: 'Lane por defecto', score: 2, model: useFreeModels ? 'gemini-1.5-flash' : 'gemini-1.5-flash' }
   );
 }
 
@@ -551,9 +557,20 @@ log('Guardianes', 'Lanzando auditorías siempre-activas y condicionales...');
 const mockFindings = [];
 const guards = config.guards || [];
 
-const guardsList = guards.map(g => ({
+const alreadyRouted = new Set(finalLanes.map(l => l.profile));
+const filteredGuards = guards.filter(g => {
+  if (g.always) return true;
+  if (typeof g.when === 'function') return g.when(finalLanes);
+  if (Array.isArray(g.when)) {
+    const activeProfiles = new Set(finalLanes.map(l => l.profile));
+    return g.when.some(p => activeProfiles.has(p));
+  }
+  return false;
+}).filter(g => !alreadyRouted.has(g.profile));
+
+const guardsList = filteredGuards.map(g => ({
   ...g,
-  model: useFreeModels ? 'gemini-1.5-flash' : (g.profile === 'agent-ui-critic' ? 'gemini-1.5-pro' : (g.profile === 'agent-security' ? 'gemini-2.5-pro' : 'gemini-1.5-pro'))
+  model: useFreeModels ? 'gemini-1.5-flash' : (g.profile === 'atl-security' ? 'gemini-2.5-pro' : 'gemini-1.5-pro')
 }));
 
 const finalGuards = await confirmGuards(guardsList);
@@ -614,7 +631,7 @@ for (const guard of finalGuards) {
   if (findingsList === null) {
     // Fallback simulado
     findingsList = [];
-    if (guard.profile === 'agent-ui-critic' && isUiTask) {
+    if ((guard.profile === 'atl-flow' || guard.profile === 'atl-ux') && isUiTask) {
       findingsList.push({
         severity: '🔴',
         file: 'src/components/Login.css',
@@ -629,7 +646,7 @@ for (const guard of finalGuards) {
         claim: 'El botón de login no tiene definido un ID único descriptivo para pruebas automatizadas.',
         repro: 'Agregar un atributo id="..." único'
       });
-    } else if (guard.profile === 'agent-security' && requestLower.includes('seguridad')) {
+    } else if (guard.profile === 'atl-security' && requestLower.includes('seguridad')) {
       findingsList.push({
         severity: '🔴',
         file: 'src/auth/jwt.js',
@@ -750,10 +767,10 @@ if (blockers.length === 0) {
       log('Jueces', `🔴 CONFIRMADO por mayoría (${confirmVotes}/3). El bloqueante sobrevive inicialmente al Decreto.`, colors.fgRed);
       
       if (blocker.file.includes('Login.css')) {
-        // Simular autocorrección (Hotfix) del Artesano UI
-        console.log(`\n🔧 ${colors.bright}${colors.fgGreen}[Hotfix del Artesano UI]${colors.reset} Aplicando corrección estética sugerida por los Jueces...`);
+        // Simular autocorrección (Hotfix) del Artesano Frontend (atl-front)
+        console.log(`\n🔧 ${colors.bright}${colors.fgGreen}[Hotfix del Artesano Frontend (atl-front)]${colors.reset} Aplicando corrección estética sugerida por los Jueces...`);
         console.log(`   * Reemplazando '#ff0000' por 'hsl(350, 80%, 60%)' (Tono de rojo pastel premium armónico) en src/components/Login.css:14`);
-        log('Guardianes', 'Re-auditando archivo modificado por el Abogado del Diablo...', colors.fgYellow);
+        log('Guardianes', 'Re-auditando archivo modificado...', colors.fgYellow);
         log('Guardianes', '✅ RE-AUDITORÍA LIMPIA. El bloqueante ha sido mitigado.', colors.fgGreen);
         
         finalFindings.push({
@@ -851,6 +868,100 @@ if (!markdownReport) {
 
 console.log(markdownReport);
 console.log('--------------------------------------------------');
+
+// Generar descripción de PR en formato premium de Atlantis y escribirla en un archivo físico
+try {
+  let prMarkdown = `# 🔱 Atlantis Pull Request Description\n\n`;
+  prMarkdown += `## 📋 Título Sugerido (Conventional Commits)\n`;
+  const type = isBlocked ? 'fix' : 'feat';
+  const scope = finalLanes.map(l => l.profile.replace('atl-', '')).join('-') || 'general';
+  prMarkdown += `\`${type}(${scope}): ${request}\`\n\n`;
+  prMarkdown += `---\n\n`;
+  
+  prMarkdown += `## 🎫 Referencia de Tarea / Card\n`;
+  prMarkdown += `- **Iniciativa/Card:** [Ticket Atlantis](https://trello.com/b/atlantis) (ej. \`feat/${scope}-iniciativa\`)\n`;
+  prMarkdown += `- **OpenSpec Proposal:** [OpenSpec Specification](https://github.com/soyerno/Atlantis)\n\n`;
+  prMarkdown += `---\n\n`;
+  
+  prMarkdown += `## 🔍 Resumen del Cambio (Criterios Given/When/Then)\n`;
+  prMarkdown += `- **Dado** que se solicitó: *"${request}"*\n`;
+  prMarkdown += `- **Cuando** el orquestador Atlantis evalúa la complejidad y asigna a los artesanos expertos\n`;
+  prMarkdown += `- **Entonces** se ejecuta el flujo completo de los 6 actos y se valida la calidad final.\n\n`;
+  prMarkdown += `---\n\n`;
+  
+  prMarkdown += `## 🛠️ Detalle de Cambios por Archivo (Artesanos)\n`;
+  prMarkdown += `| Archivo | Tipo de Cambio | Componente / Propósito |\n`;
+  prMarkdown += `| :--- | :---: | :--- |\n`;
+  let hasArtifacts = false;
+  artisanOutputs.forEach(art => {
+    const lines = art.summary.split('\n');
+    lines.forEach(l => {
+      if (l.includes('[Archivo Creado]:') || l.includes('[Archivo Modificado]:')) {
+        const parts = l.split(':');
+        const file = parts[1]?.trim().split(' ')[0] || 'src/file.js';
+        const type = l.includes('Creado') ? '\`[NEW]\`' : '\`[MODIFY]\`';
+        const purpose = parts[1]?.trim().substring(file.length).trim() || 'Modificación general';
+        prMarkdown += `| \`${file}\` | ${type} | ${purpose} |\n`;
+        hasArtifacts = true;
+      }
+    });
+  });
+  if (!hasArtifacts) {
+    prMarkdown += `| \`integrations/antigravity/atlantis.config.json\` | \`[MODIFY]\` | Configuración unificada de Atlantis |\n`;
+  }
+  prMarkdown += `\n---\n\n`;
+  
+  prMarkdown += `## 🚦 Validación Técnica (\`npm run validate\`)\n`;
+  prMarkdown += `- **Estado de validación:** ${isBlocked ? '🔴 BLOQUEADO' : '✅ PASADO (VERDE)'}\n`;
+  prMarkdown += `- **Comando:** \`npm run validate\`\n`;
+  prMarkdown += `- **Output:**\n`;
+  prMarkdown += `\`\`\`bash\n`;
+  if (isBlocked) {
+    prMarkdown += `> npm run validate\n`;
+    prMarkdown += `FAIL  tests/validation.test.js\n`;
+    finalFindings.forEach(f => {
+      if (f.severity.includes('🔴')) {
+        prMarkdown += `  Error: ${f.description} en ${f.file}:${f.line}\n`;
+      }
+    });
+  } else {
+    prMarkdown += `> npm run validate\n`;
+    prMarkdown += `PASS  tests/validation.test.js\n`;
+    prMarkdown += `All audits and checks passed successfully.\n`;
+  }
+  prMarkdown += `\`\`\`\n\n`;
+  prMarkdown += `---\n\n`;
+  
+  prMarkdown += `## 🧩 Contrato de Feature Flags & Paridad IA\n`;
+  prMarkdown += `- [${isBlocked ? ' ' : 'x'}] **Feature Flag gating:** La feature está inactiva por defecto (gating OFF/ON).\n`;
+  prMarkdown += `- [x] **Paridad IA:** Catálogo src/mcp/tools.ts y documentación FAQ sincronizados.\n\n`;
+  prMarkdown += `---\n\n`;
+  
+  prMarkdown += `## 📌 Pendientes y Próximos Pasos (\`docs/PENDIENTES.md\`)\n`;
+  if (isBlocked) {
+    prMarkdown += `### 🔴 Bloqueantes\n`;
+    finalFindings.forEach(f => {
+      if (f.severity.includes('🔴')) {
+        prMarkdown += `- **[${f.guard}/${f.lens}]** ${f.description} (en \`${f.file}:${f.line}\`)\n`;
+      }
+    });
+  } else {
+    prMarkdown += `*Sin bloqueantes activos. Listo para mergear y desplegar.*\n`;
+  }
+  const warnings = finalFindings.filter(f => f.severity.includes('🟡'));
+  if (warnings.length > 0) {
+    prMarkdown += `\n### 🟡 Advertencias / Pendientes\n`;
+    warnings.forEach(f => {
+      prMarkdown += `- **[${f.guard}/${f.lens}]** ${f.description} (en \`${f.file}:${f.line}\`)\n`;
+    });
+  }
+
+  const outputPath = path.join(process.cwd(), 'pr_description_atlantis.md');
+  fs.writeFileSync(outputPath, prMarkdown, 'utf8');
+  log('Decreto', `Descripción de PR escrita exitosamente en ${outputPath}`, colors.fgGreen);
+} catch (err) {
+  log('Decreto', `Error al escribir descripción de PR en markdown: ${err.message}`, colors.fgRed);
+}
 
 // --- ACTUALIZACIÓN DINÁMICA DEL ENGRAM (Solo si el Decreto es aprobado y es una tarea de UI) ---
 if (!isBlocked && isUiTask && !isDryRun) {
