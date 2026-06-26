@@ -1,4 +1,7 @@
-import readline from 'readline';
+// NOTA: NO importamos readline (ni nada de Node) en el tope. Los scripts de `Workflow` de
+// Claude Code corren sandboxeados SIN Node API — un `import` top-level reventaría al CARGAR,
+// rompiendo ese path. La interactividad (modo antigravity/Node) usa un import LAZY dentro de
+// confirmLanes/confirmGuards, que nunca se evalúa bajo el Workflow. Así conviven ambos paths.
 
 export const meta = {
   name: 'atlantis-orchestrator',
@@ -122,10 +125,15 @@ const colors = {
 };
 
 async function confirmLanes(lanes) {
-  if (!process.stdin.isTTY) {
+  // Sandbox del Workflow (sin `process`) o entorno no interactivo ⇒ auto-proceder, sin import.
+  if (typeof process === 'undefined' || !process.stdin?.isTTY) {
     log('Oráculo', 'Entorno no interactivo detectado. Procediendo con el ruteo automático...');
     return lanes;
   }
+  // Solo acá (path Node interactivo) cargamos readline, lazy. Si no está, auto-proceder.
+  let readline;
+  try { readline = (await import('node:readline')).default; }
+  catch { log('Oráculo', 'readline no disponible; procediendo con el ruteo automático.'); return lanes; }
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -200,10 +208,15 @@ async function confirmLanes(lanes) {
 }
 
 async function confirmGuards(guardsList) {
-  if (!process.stdin.isTTY) {
+  // Sandbox del Workflow (sin `process`) o entorno no interactivo ⇒ auto-proceder, sin import.
+  if (typeof process === 'undefined' || !process.stdin?.isTTY) {
     log('Guardianes', 'Entorno no interactivo. Procediendo con la auditoría automática...');
     return guardsList;
   }
+  // Solo acá (path Node interactivo) cargamos readline, lazy. Si no está, auto-proceder.
+  let readline;
+  try { readline = (await import('node:readline')).default; }
+  catch { log('Guardianes', 'readline no disponible; procediendo con la auditoría automática.'); return guardsList; }
 
   const rl = readline.createInterface({
     input: process.stdin,
