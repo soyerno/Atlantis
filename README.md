@@ -6,12 +6,12 @@
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-E8B84B?style=flat-square"></a>
   <img alt="Built for Claude Code" src="https://img.shields.io/badge/Claude%20Code-Workflow-0E3A4C?style=flat-square">
   <img alt="Node ≥ 18" src="https://img.shields.io/badge/Node-%E2%89%A5%2018-126E82?style=flat-square">
-  <img alt="Zero dependencies" src="https://img.shields.io/badge/deps-0-1FA8A0?style=flat-square">
+  <img alt="Motor sin dependencias" src="https://img.shields.io/badge/motor-0%20deps-1FA8A0?style=flat-square">
   <a href="./README.en.md"><img alt="English" src="https://img.shields.io/badge/lang-EN-C2922B?style=flat-square"></a>
 </p>
 
 <p align="center"><b>Una petición en lenguaje natural entra a la ciudad. Sale un solo Decreto.</b><br>
-Un orquestador multi-agente <i>config-driven</i> para Claude Code — en un solo archivo, sin servidor, sin dependencias.</p>
+Un orquestador multi-agente <i>config-driven</i> para Claude Code — en un solo archivo, sin servidor. El <b>motor</b> (<code>atlantis.mjs</code>) es zero-dep; el <a href="./slack/">puente de Slack</a> opcional trae sus propias dependencias.</p>
 
 ---
 
@@ -35,7 +35,7 @@ Seis actos, cada uno con su nombre y su oficio. Config-driven; corre con la herr
 |---|---|---|
 | 1 · **El Oráculo** | lee la petición | un router LLM la reparte en *lanes* por experto + clasifica complejidad (trivial → corriente rápida) |
 | 2 · **Los Heraldos** | anuncian | *(opcional)* registran la iniciativa (ticket/card) antes de despachar |
-| 3 · **Los Artesanos** | construyen | un agente experto por lane, en paralelo, cada uno aislado en su worktree |
+| 3 · **Los Artesanos** | construyen | un agente experto por lane, en paralelo; los que tocan código se aíslan en su propio worktree (los de auditar/reportar y los de marea baja corren sin side-effects) |
 | 4 · **Los Guardianes** | vigilan | auditan lo despachado — siempre-on + condicionales. No tocan código |
 | 5 · **Los tres Jueces** | sentencian | **Minos · Radamantis · Éaco** pesan cada 🔴; sobrevive solo por mayoría |
 | 6 · **El Decreto** | proclama | funde todo en un veredicto: ✅ hecho · 🔴 bloqueante · 🟡 pendiente · → próximo paso |
@@ -46,13 +46,38 @@ Seis actos, cada uno con su nombre y su oficio. Config-driven; corre con la herr
 - **Marea baja (dry-run).** Para probar la ciudad sin que haga nada real: los Artesanos corren en modo-reporte (cero worktrees/ramas/commits/issues) y solo dicen qué *harían*.
 - **El juicio de los Jueces.** Un Guardián de una sola voz puede sobre-severizar o alucinar un 🔴 que frena al humano. Antes del Decreto, cada 🔴 pasa por los tres Jueces (lentes repro/autoridad/severidad) que intentan refutarlo; sobrevive solo por mayoría. Los 🟡/⚪ no pagan esto, y sin ningún 🔴 el acto se saltea entero.
 
+### Ejemplo de Decreto
+
+Lo que la ciudad devuelve en `synthesis` para un pedido que cruzó dos lanes:
+
+```
+🔱 DECRETO — "agregá el botón de compartir al detalle de la mascota"
+
+🔴 BLOQUEANTES (confirmados por los Jueces)
+- El endpoint de compartir expone el id interno del dueño en la URL (agent-security, 3/3 votos).
+  → no se puede mergear hasta usar el slug público.
+
+✅ HECHO
+- agent-front: branch feat/share-button — botón + hoja de compartir en CaseDetail (3 archivos), validación verde.
+- agent-back: branch feat/share-endpoint — ruta POST /compartir con rate-limit (2 archivos), validación verde.
+
+🟡 PENDIENTE
+- Falta el texto de compartir en voz de marca (no bloquea).
+- Sin test del rate-limit del endpoint.
+
+→ PRÓXIMO PASO (humano)
+Cambiá la URL al slug público, revisá ambas branches y abrí los PRs. El 🟡 de copy puede ir en un follow-up.
+```
+
+Los 🟡/⚪ y los 🔴 refutados se reportan aparte; solo los 🔴 que sobrevivieron el juicio aparecen como bloqueantes.
+
 ---
 
 ## Requisitos
 
 - **Claude Code** con la herramienta `Workflow` disponible.
 - Uno o más **subagentes** (los Artesanos) definidos en `.claude/agents/`. Cada `profile` y cada `guard.profile` de tu config debe existir como un agente ahí — ver [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md) para la forma.
-- Nada de servidores, dependencias ni build. Atlantis es **un solo archivo** (`atlantis.mjs`).
+- El **motor** (`atlantis.mjs`) no necesita servidores, dependencias ni build: es **un solo archivo**. El [puente de Slack](./slack/) opcional sí es un servidor long-running con sus propias dependencias.
 
 ## Uso
 
@@ -64,7 +89,18 @@ Seis actos, cada uno con su nombre y su oficio. Config-driven; corre con la herr
 Workflow({ scriptPath: 'atlantis.mjs', args: 'arreglá el botón de volver del mapa' })
 ```
 
-El struct de retorno trae `{ request, dryRun, complexity, lanes, results, guards, verifiedBlockers, refutedBlockers, synthesis }`.
+El struct de retorno de la **corriente estándar** trae `{ request, dryRun, complexity, lanes, kickoff, results, failed, guards, verifiedBlockers, refutedBlockers, unjudgedBlockers, synthesis }`.
+
+Hay **otras formas de retorno** según por dónde salga la ciudad (discriminá por estos campos):
+
+| Salida | Cuándo | Forma |
+|---|---|---|
+| **Estándar** | el caso normal | el struct de arriba |
+| **Corriente rápida** | petición trivial que mapea a ≤1 lane | `{ request, fastPath: true, complexity, lane, answer, note }` |
+| **Sin lanes** | ningún artesano aplica | `{ request, dryRun, complexity, lanes: [], note }` |
+| **Error** | falta petición/roster, o el Oráculo falló | `{ error }` (`'no-request'` / `'no-profiles'` / `'oracle-failed'`) |
+
+Un consumidor programático (p.ej. el puente de Slack) debe chequear `fastPath`/`error` antes de leer `synthesis`/`guards`.
 
 **Marea baja** (verificar sin side-effects):
 
@@ -107,7 +143,7 @@ Claude Code ya trae los ladrillos: subagentes (la tool `Task`/`Agent`) y la tool
 | | Subagente suelto (`Task`) | `Workflow` crudo | **Atlantis** |
 |---|---|---|---|
 | Decide **qué** experto toma el pedido | vos, a mano | vos, en el script | **el Oráculo** según tu roster |
-| Corre varios en paralelo | no | sí, vos lo cableás | sí, **un Artesano por lane** |
+| Corre varios en paralelo | sí, pero los disparás/coordinás a mano | sí, vos lo cableás | sí, **un Artesano por lane** |
 | Red de seguridad post-trabajo | no | la que escribas | **Guardianes always-on + condicionales** |
 | Frena falsos 🔴 | no | no | **los tres Jueces** (mayoría) |
 | Reconcilia en un veredicto | no | la que escribas | **el Decreto** |
@@ -121,7 +157,17 @@ Regla simple: si es **un** experto y **una** tarea, llamá un subagente y listo.
 
 Atlantis puede **vivir en Slack** como un colaborador más: le hablás en un canal o hilo, dispara la ciudad, y el Decreto vuelve al hilo. Una respuesta en el mismo hilo **continúa la tarea** con el contexto vivo. Ver [`slack/`](./slack/) para el puente bidireccional y el reporte diario.
 
-> **Límite de privacidad (por diseño).** El Atlantis-de-Slack solo ve lo que se dice **en Slack**, más sus propios **reportes diarios** programados. Nunca observa ni refleja el trabajo de tu entorno local o de desarrollo: lo que pasa en tu máquina se queda en tu máquina. El agente se comporta como si **viviera en Slack** — no como un espejo de tu terminal.
+> **Límite de privacidad (por diseño).** El Atlantis-de-Slack solo **se dispara** por lo que se dice **en Slack**, más sus propios **reportes diarios** programados: no se engancha a tus sesiones locales ni espeja tu terminal. Pero ese límite es sobre **qué lo activa**, no sobre **a qué accede** una corrida: Claude Code corre con `cwd` en tu repo y, según el `--permission-mode`, puede leer archivos del host fuera del repo si un usuario allowlisted se lo pide. Tratá el allowlist (`SLACK_ALLOWED_USERS`) como la frontera de confianza real, y mantené el default `plan` (read-only) salvo que confíes en todos. Ver [`slack/`](./slack/) para endurecerlo.
+
+---
+
+## Troubleshooting
+
+| Síntoma | Causa probable | Fix |
+|---|---|---|
+| Un `profile` o `guard.profile` "no existe" / la lane se cae sin correr | el agente del CONFIG no está en `.claude/agents/` | cada `profile` y cada `guard.profile` debe existir como agente. Ver [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md). |
+| El script no arranca / `Workflow` no responde | la herramienta `Workflow` no está disponible en tu Claude Code | habilitá `Workflow` (ver Requisitos); sin ella Atlantis no corre. |
+| Una "marea baja" igual creó worktrees/ramas/commits (corrida REAL) | `dryRun` se perdió: el harness puede entregar `args` como **string** (JSON serializado), y `{ request, dryRun }` llega como texto | Atlantis ya normaliza+parsea un `args` string antes de leer `dryRun`. Verificá `dryRun: true` en el **struct de retorno** antes de confiar en que fue ensayo. |
 
 ---
 
@@ -142,6 +188,6 @@ Issues y PRs bienvenidos. Mantené el motor **agnóstico del proyecto** (toda la
 
 ## Créditos y licencia
 
-El patrón **orquestador → pool intercambiable de expertos → verificación** lo productizó Sakana AI como **Fugu** (2026); Atlantis lo lleva a una pieza chica, sin servidor, que vive dentro de tu repo. Licencia [MIT](./LICENSE).
+Atlantis se inspira en el patrón **orquestador → pool intercambiable de expertos → verificación** que vienen popularizando varios sistemas multi-agente, y lo lleva a una pieza chica, sin servidor, que vive dentro de tu repo. Licencia [MIT](./LICENSE).
 
 <p align="center"><sub>🔱 Atlantis · una petición entra, un Decreto sale.</sub></p>

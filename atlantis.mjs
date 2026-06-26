@@ -154,8 +154,15 @@ const routed = await agent(
   { label: 'oráculo', phase: 'Oráculo', schema: ROUTE_SCHEMA, effort: 'low' }
 )
 
-const lanes = (routed?.lanes ?? []).filter(l => PROFILES[l.profile])
-const complexity = routed?.complexity === 'trivial' ? 'trivial' : 'standard'
+// El Oráculo crasheado (fallo de infra, o salida que no matchea ROUTE_SCHEMA → null) NO debe
+// confundirse con una decisión legítima de "ningún artesano aplica" (lanes:[]). Sin este chequeo,
+// un router caído colapsaría al ramo sin-lanes y el consumidor no podría distinguir los dos casos.
+if (!routed || !Array.isArray(routed.lanes) || typeof routed.complexity !== 'string') {
+  log('El Oráculo no devolvió una ruta válida (fallo de infra o salida fuera de schema). Manejalo en el hilo principal.')
+  return { error: 'oracle-failed' }
+}
+const lanes = (routed.lanes ?? []).filter(l => PROFILES[l.profile])
+const complexity = routed.complexity === 'trivial' ? 'trivial' : 'standard'
 
 // Corriente rápida: petición trivial que mapea a ≤1 lane se resuelve directo — sin Heraldos,
 // sin worktrees, sin Guardianes. Gate conservador: el Oráculo ya marcó standard ante
@@ -177,7 +184,7 @@ if (!dryRun && complexity === 'trivial' && lanes.length <= 1) {
 if (!lanes.length) {
   const why = routed?.note ?? 'sin razón dada'
   log(`Ningún artesano aplica: ${why}. Manejalo en el hilo principal.`)
-  return { lanes: [], note: why }
+  return { request, dryRun, complexity, lanes: [], note: why }
 }
 log(`Ruteado a ${lanes.length} lane(s): ${lanes.map(l => l.profile).join(', ')}`)
 
@@ -211,20 +218,46 @@ const dispatched = await parallel(lanes.map(lane => () =>
   ).then(out => ({ profile: lane.profile, task: lane.task, output: out }))
 ))
 
-const results = dispatched.filter(r => r && r.output)
-const failed = dispatched.filter(r => r && !r.output)
+// Un slot que el harness rechaza antes del .then resuelve a null: no tiene profile.
+// Re-asociamos cada slot a su lane por índice para que un fallo duro cuente como fallo
+// (no desaparezca de results Y de failed por ser falsy).
+const dispatchedByLane = lanes.map((lane, i) => {
+  const r = dispatched[i]
+  return (r && r.profile) ? r : { profile: lane.profile, task: lane.task, output: null }
+})
+const results = dispatchedByLane.filter(r => r.output)
+const failed = dispatchedByLane.filter(r => !r.output)
 if (failed.length) log(`⚠ ${failed.length} artesano(s) sin salida: ${failed.map(r => r.profile).join(', ')}`)
 
 // Guardianes: siempre-on (+ condicionales). Red de seguridad por defecto — el Oráculo
 // pudo no ver el riesgo; esto sí. Si una lane YA fue ruteada a un Guardián, no se re-corre.
 phase('Guardianes')
 const alreadyRouted = new Set(lanes.map(l => l.profile))
+// El reporte del artesano es la ÚNICA señal cuando NO hay diff que el Guardián pueda releer.
+// Solo acotamos cuando ESA lane dejó un diff de respaldo (creó rama/worktree): ahí el Guardián
+// puede releer el diff vs origin/main si la salida se cortó. NO es cuestión de dry-run: un
+// artesano audit/report-only en corrida REAL tampoco crea rama, y en dry-run nadie la crea — en
+// ambos casos truncar pierde hallazgos tardíos (p.ej. seguridad) sin fallback. Detectamos el
+// respaldo por lane: si la salida evidencia una rama/worktree, acotamos; si no, pasamos completo.
+const CLAMP = 8000
+// Respaldo REAL = el artesano declaró una rama/worktree CON NOMBRE concreto (lo que el
+// dispatchPreamble pide: "Reportá honesto: branch, archivos…"). Un match suelto de la
+// palabra 'rama|branch|worktree' en cualquier parte es un falso positivo: un reporte
+// audit-only que dice "NO creé worktree ni rama" lo gatillaría y truncaría sin diff que
+// releer, perdiendo hallazgos tardíos. Exigimos un identificador de rama afirmativo
+// (p.ej. "branch: fix/foo", "rama feat/bar") — algo que un Guardián pueda releer vía
+// git diff. Si no aparece, pasamos el reporte COMPLETO (es la única señal sin diff).
+const hasDiffBackup = (out) => /\b(branch|rama|worktree)s?\b[ \t]*[:=]?[ \t]*[A-Za-z][\w./-]*\/[\w./-]+/i.test(String(out))
+const clamp = (s, out) => (!dryRun && hasDiffBackup(out)) ? String(s).slice(0, CLAMP) : String(s)
 const producido = results.length
-  ? results.map(r => `### [${r.profile}] ${r.task}\n${String(r.output).slice(0, 1800)}`).join('\n\n')
+  ? results.map(r => `### [${r.profile}] ${r.task}\n${clamp(String(r.output), r.output)}`).join('\n\n')
   : '(los artesanos no produjeron salida)'
+// Dedup SOLO para guards condicionales: si su perfil ya fue ruteado como lane, no se re-corre.
+// Un guard always:true NO se deduplica — es la red de seguridad independiente, y se necesita
+// JUSTO cuando el artesano de ese perfil tocó el diff (no puede ser su único auditor).
 const GUARDS = GUARDS_CFG
   .filter(g => g.always || (typeof g.when === 'function' && g.when(lanes)))
-  .filter(g => !alreadyRouted.has(g.profile))
+  .filter(g => g.always || !alreadyRouted.has(g.profile))
 const guards = await parallel(GUARDS.map(g => () =>
   agent(
     `Sos el Guardián ${g.lens} (${g.profile}) de Atlantis. Se despachó una petición y los artesanos produjeron esto:\n\n${producido}\n\n` +
@@ -234,28 +267,64 @@ const guards = await parallel(GUARDS.map(g => () =>
     `NO cambies código. Devolvé tus hallazgos ESTRUCTURADOS (uno por problema): severidad (🔴 bloquea / 🟡 pendiente / ⚪ informativo), archivo:línea, una afirmación verificable, y repro si aplica. ` +
     `Reservá 🔴 para lo que de verdad impide avanzar — va a pasar por los tres Jueces. Si está limpio, clean:true y findings vacío.`,
     { label: `guardián:${g.profile}`, phase: 'Guardianes', agentType: g.profile, schema: GUARD_SCHEMA }
-  ).then(out => ({ profile: g.profile, lens: g.lens, findings: out?.findings ?? [], clean: out?.clean ?? false }))
+  ).then(out => ({ profile: g.profile, lens: g.lens, findings: out?.findings ?? [], clean: out?.clean ?? false, errored: out == null }))
 ))
-const guardResults = guards.filter(Boolean)
+// Un slot que el harness rechaza ANTES del .then resuelve a null (no corrió el .then que setea
+// errored:true), y filter(Boolean) lo descartaría — desaparecería de errored Y de clean, y el
+// Decreto podría emitir un all-clear falso ocultando que un Guardián always-on jamás auditó.
+// Re-asociamos por índice (igual que los Artesanos): un slot nulo cuenta como errored, no como limpio.
+const guardResults = GUARDS.map((g, i) =>
+  (guards[i] && guards[i].profile)
+    ? guards[i]
+    : { profile: g.profile, lens: g.lens, findings: [], clean: false, errored: true })
 log(`Guardianes: ${guardResults.map(g => g.profile).join(' + ') || '(omitidos)'}`)
 
 // Los tres Jueces (juicio adversarial): un Guardián de una sola voz puede sobre-severizar o
 // alucinar un 🔴 que frena al humano. Antes de elevarlo, cada 🔴 pasa por los tres Jueces de
 // Atlantis (Minos, Radamantis, Éaco — tres lentes distintas) que intentan REFUTARLO; sobrevive
-// solo si la MAYORÍA lo confirma (≥2 de 3). Los 🟡/⚪ no pagan este acto. Sin 🔴, se saltea entero.
+// solo si la MAYORÍA de los votos válidos lo confirma. Los 🟡/⚪ no pagan este acto. Sin 🔴, se saltea entero.
+//
+// INDEPENDENCIA: cada Juez es una INVOCACIÓN distinta (contexto fresco) e independiente del
+// hallazgo. Preferimos perfiles OTROS que el acusador, pero NO barremos al perfil acusador del
+// pool: si el 🔴 es de dominio (p.ej. seguridad/auth/IDOR) y el acusador era el único agente
+// competente en ese dominio, excluir su perfil deja el hallazgo en manos de jueces que no pueden
+// verificarlo y, con el sesgo "refuted ante la duda", lo descartan en silencio — justo el 🔴 de
+// más riesgo, juzgado por los menos competentes. Por eso el perfil acusador queda como Juez de
+// ÚLTIMO recurso (una invocación fresca distinta del Guardián), garantizando una lente de dominio.
+// Si quedan <2 agentes distintos, el 🔴 queda NO JUZGADO: exigimos ≥2 votos para que la mayoría signifique algo.
 const blockers = guardResults.flatMap(g =>
   (g.findings ?? []).filter(f => f.severity === '🔴').map(f => ({ ...f, guard: g.profile, lens: g.lens })))
 let verifiedBlockers = []
 let refutedBlockers = []
+let unjudgedBlockers = []
 if (blockers.length) {
   phase('Jueces')
+  // Orden de PRIORIDAD (no posicional ciego): cuando hay <3 agentes distintos, asignamos las
+  // lentes por este orden, así la lente de severidad (ÉACO) — la razón de ser del juicio: cazar
+  // un 🔴 sobre-severizado — nunca se cae primero en un roster chico. Con 2 candidatos corren
+  // ÉACO + MINOS; nunca se queda solo repro+autoridad sin chequear la severidad del 🔴.
   const JUECES = [
+    'ÉACO (severidad): ¿es de verdad 🔴 que impide avanzar, o un 🟡 sobre-severizado?',
     'MINOS (repro): ¿realmente reproduce con los pasos dados? ¿el archivo:línea existe y dice lo que el hallazgo afirma?',
     'RADAMANTIS (autoridad): ¿está dentro del scope de la petición, o es deuda preexistente / fuera de alcance que no debería bloquear ESTE trabajo?',
-    'ÉACO (severidad): ¿es de verdad 🔴 que impide avanzar, o un 🟡 sobre-severizado?',
   ]
-  const verdicts = await parallel(blockers.map(b => () =>
-    parallel(JUECES.map(juez => () =>
+  // Pool de agentes-Juez disponibles (config-driven). Independientes del acusador por construcción.
+  const judgePool = (Array.isArray(CONFIG.judges) && CONFIG.judges.length)
+    ? CONFIG.judges
+    : [...new Set([...Object.keys(PROFILES), ...GUARDS_CFG.map(g => g.profile)])]
+  const verdicts = await parallel(blockers.map(b => () => {
+    // Asignar UN agentType DISTINTO por lente. Cada agentType es una invocación única (sin
+    // módulo: con candidates[i % n] un solo agente cazaría varias lentes y controlaría la mayoría).
+    // Preferimos perfiles OTROS que el acusador, pero conservamos el perfil acusador al FINAL como
+    // Juez de dominio de último recurso (invocación fresca, distinta del Guardián) — así un 🔴 de
+    // dominio no queda sin un Juez competente. Si quedan <2 agentes distintos, el 🔴 queda NO JUZGADO.
+    const candidates = [...judgePool.filter(p => p !== b.guard), ...(judgePool.includes(b.guard) ? [b.guard] : [])]
+    if (candidates.length < 2) return Promise.resolve({ ...b, survives: null, confirms: 0, total: 0, verdicts: [] })
+    // Una lente por agente disponible, hasta las tres lentes, EN ORDEN DE PRIORIDAD (severidad
+    // primero): cada Juez es un agente distinto. Con 2 candidatos corren ÉACO+MINOS, no se omite
+    // el chequeo de severidad.
+    const assigned = JUECES.slice(0, candidates.length).map((juez, i) => ({ juez, agentType: candidates[i] }))
+    return parallel(assigned.map(({ juez, agentType }) => () =>
       agent(
         `Sos uno de los tres Jueces de Atlantis. Pesás un hallazgo BLOQUEANTE (🔴) que un Guardián levantó. Tu deber es intentar REFUTARLO desde tu lente — ${juez}\n\n` +
         `HALLAZGO (de ${b.guard} / ${b.lens}):\n${b.claim}\n` +
@@ -264,17 +333,26 @@ if (blockers.length) {
         `\nPetición original: ${request}\n\n` +
         `Verificá contra el repo (Read/Grep; git diff vs origin/main si una lane creó rama). ` +
         `Sesgo por defecto: refuted=true ante la duda — un 🔴 solo se sostiene si lo CONFIRMÁS. NO cambies código.`,
-        { label: `juez:${b.guard}`, phase: 'Jueces', agentType: b.guard, effort: 'high', schema: VERDICT_SCHEMA }
+        { label: `juez:${agentType}`, phase: 'Jueces', agentType, effort: 'high', schema: VERDICT_SCHEMA }
       )
     )).then(vs => {
       const votes = vs.filter(Boolean)
       const confirms = votes.filter(v => !v.refuted).length
-      return { ...b, survives: confirms >= 2, confirms, total: votes.length, verdicts: votes }
+      // Mayoría sobre los Jueces ASIGNADOS (no sobre los que sobrevivieron al crash): un Juez
+      // caído NO debe endurecer el umbral contra el 🔴. Si computáramos la mayoría sobre los
+      // votos VÁLIDOS, un Juez nulo bajaría el divisor (3→2) y exigiría unanimidad de los 2
+      // restantes — un crash volvería la confirmación MÁS difícil, justo al revés. Un Juez caído
+      // cuenta como NO-confirmación contra el total asignado. Y si quedan <2 votos válidos por
+      // caídas, no hay quórum: el 🔴 queda NO JUZGADO (survives=null), no se aplica la regla estricta.
+      const total = assigned.length
+      const survives = votes.length >= 2 ? (confirms * 2 > total) : null
+      return { ...b, survives, confirms, total, verdicts: votes }
     })
-  ))
-  verifiedBlockers = verdicts.filter(v => v.survives)
-  refutedBlockers = verdicts.filter(v => !v.survives)
-  log(`Los tres Jueces: ${verifiedBlockers.length}/${blockers.length} bloqueante(s) confirmado(s) por mayoría; ${refutedBlockers.length} refutado(s).`)
+  }))
+  verifiedBlockers = verdicts.filter(v => v.survives === true)
+  refutedBlockers = verdicts.filter(v => v.survives === false)
+  unjudgedBlockers = verdicts.filter(v => v.survives === null)
+  log(`Los tres Jueces: ${verifiedBlockers.length}/${blockers.length} bloqueante(s) confirmado(s) por mayoría; ${refutedBlockers.length} refutado(s)${unjudgedBlockers.length ? `; ${unjudgedBlockers.length} sin quórum (no juzgado(s))` : ''}.`)
 }
 
 // El Decreto: funde salidas de Artesanos + hallazgos (bloqueantes YA juzgados) en UN
@@ -283,15 +361,22 @@ phase('Decreto')
 const fmtF = (f) => `- ${f.severity} [${f.guard}/${f.lens}] ${f.claim}${f.file ? ` (${f.file})` : ''}`
 const nonBlockers = guardResults.flatMap(g =>
   (g.findings ?? []).filter(f => f.severity !== '🔴').map(f => ({ ...f, guard: g.profile, lens: g.lens })))
-const cleanGuards = guardResults.filter(g => g.clean || !(g.findings ?? []).length).map(g => g.profile)
+// Un Guardián sin salida (errored) NO es limpio: crasheó, no auditó. Solo cuenta como limpio
+// el que devolvió clean:true (o findings vacío sin error). Los errored se reportan aparte.
+const cleanGuards = guardResults.filter(g => !g.errored && (g.clean || !(g.findings ?? []).length)).map(g => g.profile)
+const erroredGuards = guardResults.filter(g => g.errored).map(g => g.profile)
 const hallazgos = (
   (verifiedBlockers.length
-    ? `BLOQUEANTES CONFIRMADOS (por mayoría de los tres Jueces, ${'>'}=2/3):\n${verifiedBlockers.map(fmtF).join('\n')}\n\n`
-    : (blockers.length ? `BLOQUEANTES: ninguno de los ${blockers.length} 🔴 sobrevivió el juicio.\n\n` : ``)) +
+    ? `BLOQUEANTES CONFIRMADOS (por mayoría de votos válidos de los Jueces):\n${verifiedBlockers.map(fmtF).join('\n')}\n\n`
+    : (blockers.length && !unjudgedBlockers.length ? `BLOQUEANTES: ninguno de los ${blockers.length} 🔴 sobrevivió el juicio.\n\n` : ``)) +
+  (unjudgedBlockers.length
+    ? `🔴 NO VERIFICADOS (sin quórum de Jueces — un fallo de infra impidió juzgarlos; NO se refutaron, tratalos con cautela como posibles bloqueantes):\n${unjudgedBlockers.map(fmtF).join('\n')}\n\n`
+    : ``) +
   (refutedBlockers.length
     ? `🔴 REFUTADOS (un Guardián los marcó bloqueantes; los Jueces los descartaron — NO los presentes como bloqueantes):\n${refutedBlockers.map(b => `- ${b.claim} → refutado: ${(b.verdicts.find(v => v.refuted)?.reason) ?? 'mayoría refutó'}`).join('\n')}\n\n`
     : ``) +
   (nonBlockers.length ? `OTROS HALLAZGOS (🟡/⚪):\n${nonBlockers.map(fmtF).join('\n')}\n\n` : ``) +
+  (erroredGuards.length ? `Guardianes SIN SALIDA (crashearon — NO auditaron, no son un all-clear): ${erroredGuards.join(', ')}.\n` : ``) +
   (cleanGuards.length ? `Limpio según: ${cleanGuards.join(', ')}.` : ``)
 ).trim() || '(sin Guardianes corridos o todos limpios)'
 const synthesis = await agent(
@@ -301,7 +386,7 @@ const synthesis = await agent(
   `SALIDAS DE LOS ARTESANOS:\n${producido}\n\n` +
   `HALLAZGOS DE LOS GUARDIANES (los bloqueantes ya pasaron por los tres Jueces):\n${hallazgos}\n\n` +
   `Devolvé UN Decreto reconciliado, conciso, en este orden:\n` +
-  `1. 🔴 BLOQUEANTES primero — usá SOLO los "BLOQUEANTES CONFIRMADOS". Los "🔴 REFUTADOS" NO son bloqueantes (los Jueces los descartaron); no los nombres como tales. Si no hay confirmados, decí "sin bloqueantes".\n` +
+  `1. 🔴 BLOQUEANTES primero — usá los "BLOQUEANTES CONFIRMADOS" y, si los hay, listá aparte los "🔴 NO VERIFICADOS" (sin quórum de Jueces) como cautela, sin afirmarlos como confirmados. Los "🔴 REFUTADOS" NO son bloqueantes (los Jueces los descartaron); no los nombres como tales. Si no hay confirmados ni no-verificados, decí "sin bloqueantes".\n` +
   `2. ✅ HECHO: qué quedó listo (branches creadas, archivos tocados).\n` +
   `3. 🟡 PENDIENTE: lo no resuelto.\n` +
   `4. → PRÓXIMO PASO para el humano (que es quien abre/mergea los PRs).\n` +
@@ -321,5 +406,6 @@ return {
   guards: guardResults,
   verifiedBlockers: verifiedBlockers.map(b => ({ guard: b.guard, claim: b.claim, file: b.file, confirms: b.confirms, total: b.total })),
   refutedBlockers: refutedBlockers.map(b => ({ guard: b.guard, claim: b.claim, reason: b.verdicts.find(v => v.refuted)?.reason ?? null })),
+  unjudgedBlockers: unjudgedBlockers.map(b => ({ guard: b.guard, claim: b.claim, file: b.file, confirms: b.confirms, total: b.total })),
   synthesis,
 }
