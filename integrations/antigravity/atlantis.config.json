@@ -1,11 +1,15 @@
 {
   "profiles": {
+    "agent-ui-enhancer": "optimizador de prompts: interpreta requerimientos de UI y los expande con diseño premium y variables de color basados en el Engram",
+    "agent-ui": "diseño de interfaces: estructura semántica HTML, layouts responsivos CSS, animación suave y glassmorphism",
+    "agent-ui-critic": "auditoría estética (Abogado del Diablo): verifica contraste de color, fuentes premium, animaciones, UX fluida, SEO e IDs únicos",
     "agent-front": "frontend: componentes, páginas, navegación, bugs visuales/UI",
     "agent-back": "backend: rutas API, dominio, persistencia, jobs, server actions",
     "agent-docs": "documentación: guías, READMEs, specs, FAQ",
     "agent-security": "seguridad: auth, control de acceso, PII, secrets, prompt-injection"
   },
   "guards": [
+    { "profile": "agent-ui-critic", "lens": "CRÍTICA ESTÉTICA (ABOGADO DEL DIABLO)", "focus": "contraste de color, tipografía premium, micro-animaciones, diseño responsivo, SEO e IDs únicos", "always": true },
     { "profile": "agent-security", "lens": "SEGURIDAD", "focus": "auth, control de acceso, PII, secrets, prompt-injection", "always": true },
     { "profile": "agent-docs", "lens": "DOCUMENTACIÓN", "focus": "lo que cambió quedó documentado; nada sin guía/spec", "always": true }
   ],

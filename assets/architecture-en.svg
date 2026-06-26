@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 1080" width="880" height="1080" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img" aria-label="The six acts of Atlantis">
+  <defs>
+    <linearGradient id="abyss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0A2233"/>
+      <stop offset="1" stop-color="#05161F"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7E4A6"/>
+      <stop offset="0.5" stop-color="#E8B84B"/>
+      <stop offset="1" stop-color="#C2922B"/>
+    </linearGradient>
+  </defs>
+  <rect width="880" height="1080" rx="22" fill="url(#abyss)"/>
+
+  <!-- spine -->
+  <line x1="190" y1="129" x2="190" y2="959" stroke="url(#gold)" stroke-width="2.5" opacity="0.6"/>
+
+  <!-- chevrons -->
+  <g fill="url(#gold)" opacity="0.7">
+    <path d="M183 200 l7 9 l7 -9 z"/>
+    <path d="M183 366 l7 9 l7 -9 z"/>
+    <path d="M183 532 l7 9 l7 -9 z"/>
+    <path d="M183 698 l7 9 l7 -9 z"/>
+    <path d="M183 864 l7 9 l7 -9 z"/>
+  </g>
+
+  <!-- ACT 1 -->
+  <g>
+    <rect x="150" y="64" width="680" height="130" rx="16" fill="#0E3A4C" opacity="0.55"/>
+    <rect x="150" y="64" width="680" height="130" rx="16" fill="none" stroke="#E8B84B" stroke-width="1" opacity="0.35"/>
+    <circle cx="190" cy="129" r="21" fill="url(#gold)"/>
+    <text x="190" y="137" text-anchor="middle" font-size="22" font-weight="700" fill="#0A2233" font-family="Georgia, serif">1</text>
+    <text x="232" y="116" font-size="25" letter-spacing="2" fill="#F2D98E" font-family="Georgia, serif">THE ORACLE</text>
+    <text x="232" y="146" font-size="15.5" fill="#CFE7E3">Reads the petition and splits it into lanes per expert.</text>
+    <text x="232" y="170" font-size="15.5" fill="#8FBFBE">Classifies complexity: trivial &#8594; swift current.</text>
+  </g>
+
+  <!-- ACT 2 -->
+  <g>
+    <rect x="150" y="230" width="680" height="130" rx="16" fill="#0E3A4C" opacity="0.55"/>
+    <rect x="150" y="230" width="680" height="130" rx="16" fill="none" stroke="#E8B84B" stroke-width="1" opacity="0.35"/>
+    <circle cx="190" cy="295" r="21" fill="url(#gold)"/>
+    <text x="190" y="303" text-anchor="middle" font-size="22" font-weight="700" fill="#0A2233" font-family="Georgia, serif">2</text>
+    <text x="232" y="282" font-size="25" letter-spacing="2" fill="#F2D98E" font-family="Georgia, serif">THE HERALDS</text>
+    <text x="232" y="312" font-size="15.5" fill="#CFE7E3">Optional. Register the initiative (ticket / card)</text>
+    <text x="232" y="336" font-size="15.5" fill="#8FBFBE">before dispatch. Skipped in low tide (dry-run).</text>
+  </g>
+
+  <!-- ACT 3 -->
+  <g>
+    <rect x="150" y="396" width="680" height="130" rx="16" fill="#0E3A4C" opacity="0.55"/>
+    <rect x="150" y="396" width="680" height="130" rx="16" fill="none" stroke="#E8B84B" stroke-width="1" opacity="0.35"/>
+    <circle cx="190" cy="461" r="21" fill="url(#gold)"/>
+    <text x="190" y="469" text-anchor="middle" font-size="22" font-weight="700" fill="#0A2233" font-family="Georgia, serif">3</text>
+    <text x="232" y="448" font-size="25" letter-spacing="2" fill="#F2D98E" font-family="Georgia, serif">THE ARTISANS</text>
+    <text x="232" y="478" font-size="15.5" fill="#CFE7E3">One expert per lane, in parallel, each isolated</text>
+    <text x="232" y="502" font-size="15.5" fill="#8FBFBE">in its own worktree if modifying code.</text>
+  </g>
+
+  <!-- ACT 4 -->
+  <g>
+    <rect x="150" y="562" width="680" height="130" rx="16" fill="#0E3A4C" opacity="0.55"/>
+    <rect x="150" y="562" width="680" height="130" rx="16" fill="none" stroke="#E8B84B" stroke-width="1" opacity="0.35"/>
+    <circle cx="190" cy="627" r="21" fill="url(#gold)"/>
+    <text x="190" y="635" text-anchor="middle" font-size="22" font-weight="700" fill="#0A2233" font-family="Georgia, serif">4</text>
+    <text x="232" y="614" font-size="25" letter-spacing="2" fill="#F2D98E" font-family="Georgia, serif">THE GUARDIANS</text>
+    <text x="232" y="644" font-size="15.5" fill="#CFE7E3">Audit what was dispatched — always-on + conditional.</text>
+    <text x="232" y="668" font-size="15.5" fill="#8FBFBE">They don't touch code: raise findings by severity.</text>
+  </g>
+
+  <!-- ACT 5 -->
+  <g>
+    <rect x="150" y="728" width="680" height="130" rx="16" fill="#0E3A4C" opacity="0.55"/>
+    <rect x="150" y="728" width="680" height="130" rx="16" fill="none" stroke="#E8B84B" stroke-width="1" opacity="0.35"/>
+    <circle cx="190" cy="793" r="21" fill="url(#gold)"/>
+    <text x="190" y="801" text-anchor="middle" font-size="22" font-weight="700" fill="#0A2233" font-family="Georgia, serif">5</text>
+    <text x="232" y="780" font-size="25" letter-spacing="2" fill="#F2D98E" font-family="Georgia, serif">THE THREE JUDGES</text>
+    <text x="232" y="810" font-size="15.5" fill="#CFE7E3">Minos &#183; Rhadamanthus &#183; Aeacus weigh each blocker.</text>
+    <text x="232" y="834" font-size="15.5" fill="#8FBFBE">Survives only by majority; otherwise skipped.</text>
+  </g>
+
+  <!-- ACT 6 -->
+  <g>
+    <rect x="150" y="894" width="680" height="130" rx="16" fill="#0E3A4C" opacity="0.7"/>
+    <rect x="150" y="894" width="680" height="130" rx="16" fill="none" stroke="#E8B84B" stroke-width="1.6" opacity="0.6"/>
+    <circle cx="190" cy="959" r="21" fill="url(#gold)"/>
+    <text x="190" y="967" text-anchor="middle" font-size="22" font-weight="700" fill="#0A2233" font-family="Georgia, serif">6</text>
+    <text x="232" y="946" font-size="25" letter-spacing="2" fill="#F2D98E" font-family="Georgia, serif">THE DECREE</text>
+    <text x="232" y="976" font-size="15.5" fill="#CFE7E3">Fuses everything into one reconciled verdict:</text>
+    <text x="232" y="1000" font-size="15.5" fill="#8FBFBE">done · blocker · pending · next step for the human.</text>
+  </g>
+</svg>

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 440" width="1280" height="440" font-family="Georgia, 'Times New Roman', serif" role="img" aria-label="Atlantis — config-driven multi-agent orchestration for Claude Code">
+  <defs>
+    <linearGradient id="abyss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0A2233"/>
+      <stop offset="0.55" stop-color="#08334A"/>
+      <stop offset="1" stop-color="#04141F"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.30" r="0.62">
+      <stop offset="0" stop-color="#1FA8A0" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#1FA8A0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7E4A6"/>
+      <stop offset="0.5" stop-color="#E8B84B"/>
+      <stop offset="1" stop-color="#C2922B"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="440" fill="url(#abyss)"/>
+  <rect width="1280" height="440" fill="url(#glow)"/>
+
+  <!-- sunken columns -->
+  <g fill="#0E3A4C" opacity="0.45">
+    <rect x="120" y="120" width="26" height="320" rx="6"/>
+    <rect x="180" y="160" width="26" height="280" rx="6"/>
+    <rect x="1074" y="120" width="26" height="320" rx="6"/>
+    <rect x="1134" y="160" width="26" height="280" rx="6"/>
+  </g>
+  <!-- caustic light -->
+  <g stroke="#2BC1B6" stroke-width="2" fill="none" opacity="0.18">
+    <path d="M0 86 C 260 40, 520 132, 1280 70"/>
+    <path d="M0 122 C 320 70, 640 168, 1280 104"/>
+  </g>
+
+  <!-- trident emblem -->
+  <g stroke="url(#gold)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="640" y1="106" x2="640" y2="200"/>
+    <line x1="610" y1="110" x2="670" y2="110"/>
+    <line x1="640" y1="66" x2="640" y2="110"/>
+    <path d="M610 110 Q610 78 624 70"/>
+    <path d="M670 110 Q670 78 656 70"/>
+  </g>
+  <g fill="url(#gold)" stroke="none">
+    <circle cx="640" cy="62" r="4.5"/>
+    <circle cx="623" cy="66" r="3.5"/>
+    <circle cx="657" cy="66" r="3.5"/>
+    <circle cx="640" cy="206" r="5"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="640" y="298" text-anchor="middle" font-size="92" letter-spacing="18" fill="url(#gold)">ATLANTIS</text>
+
+  <!-- tagline -->
+  <text x="640" y="344" text-anchor="middle" font-size="21" letter-spacing="3" fill="#CFE7E3" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">The orchestrator-city of agents for Claude Code</text>
+  <text x="640" y="374" text-anchor="middle" font-size="14.5" letter-spacing="3.5" fill="#7FB7B6" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">ONE PETITION  ·  EXPERT ARTISANS  ·  GUARDIANS AND JUDGES  ·  ONE DECREE</text>
+
+  <!-- meander (greek key) -->
+  <g stroke="url(#gold)" stroke-width="2.5" fill="none" opacity="0.85">
+    <path d="M470 408 h14 v-14 h14 v14 h14 v-22 h14 v22 h14 v-14 h14 v14 h14 v-22 h14 v22 h14 v-14 h14 v-14 h14 v-22 h14 v22 h14 v-14 h14 v14 h14 v-22 h14 v22 h14"/>
+  </g>
+</svg>

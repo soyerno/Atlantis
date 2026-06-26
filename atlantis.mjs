@@ -1,4 +1,6 @@
 import readline from 'readline';
+import fs from 'fs';
+import path from 'path';
 
 export const meta = {
   name: 'atlantis-orchestrator',
@@ -21,6 +23,9 @@ export const meta = {
 const CONFIG = {
   // (1) Roster de Artesanos. clave = nombre del agente en .claude/agents/, valor = qué cubre (una frase).
   profiles: {
+    'agent-ui-enhancer': 'optimizador de prompts: interpreta requerimientos de UI y los expande con diseño premium y variables de color basados en el Engram',
+    'agent-ui': 'diseño de interfaces: estructura semántica HTML, layouts responsivos CSS, animación suave y glassmorphism',
+    'agent-ui-critic': 'auditoría estética (Abogado del Diablo): verifica contraste de color, fuentes premium, animaciones, UX fluida, SEO e IDs únicos',
     'agent-front': 'frontend: componentes, páginas, navegación, bugs visuales/UI',
     'agent-back': 'backend: rutas API, dominio, persistencia, jobs, server actions',
     'agent-docs': 'documentación: guías, READMEs, specs, FAQ',
@@ -31,6 +36,7 @@ const CONFIG = {
   //     always:true ⇒ siempre. when:(lanes)=>bool ⇒ condicional según qué se despachó.
   //     Si una lane ya fue ruteada a ese perfil, el Guardián no se re-corre.
   guards: [
+    { profile: 'agent-ui-critic', lens: 'CRÍTICA ESTÉTICA (ABOGADO DEL DIABLO)', focus: 'contraste de color, tipografía premium, micro-animaciones, diseño responsivo, SEO e IDs únicos', always: true },
     { profile: 'agent-security', lens: 'SEGURIDAD', focus: 'auth, control de acceso, PII, secrets, prompt-injection', always: true },
     { profile: 'agent-docs', lens: 'DOCUMENTACIÓN', focus: 'lo que cambió quedó documentado; nada sin guía/spec', always: true },
   ],
@@ -372,6 +378,45 @@ if (useFreeModels) {
 }
 const complexity = routed?.complexity === 'trivial' ? 'trivial' : 'standard'
 
+const requestLower = request.toLowerCase();
+const hasUiLane = lanes.some(l => l.profile === 'agent-ui' || l.profile === 'agent-front');
+const isUiTask = hasUiLane || ['front', 'ui', 'botón', 'visual', 'pantalla', 'componente', 'css', 'html', 'diseño', 'login', 'layout', 'glassmorphism'].some(k => requestLower.includes(k));
+
+let finalRequest = request;
+if (isUiTask) {
+  log('Oráculo', 'Se ha detectado un requerimiento de UI/UX. Consultando el Engram...', colors.fgMagenta);
+  let engramRules = '';
+  const engramPath = path.join(process.cwd(), 'integrations/antigravity/engram/knowledge_base.md');
+  if (fs.existsSync(engramPath)) {
+    try {
+      const engramData = fs.readFileSync(engramPath, 'utf8');
+      engramRules = engramData.split('## 🎨 Sistema de Diseño Estándar')[1]?.split('## 📚 Lecciones Aprendidas')[0] || '';
+    } catch (err) {
+      log('Oráculo', `Error al leer el Engram: ${err.message}`, colors.fgRed);
+    }
+  }
+
+  log('Oráculo', 'Invocando al optimizador de prompts [agent-ui-enhancer] (Prompt Enhancer)...', colors.fgCyan);
+  try {
+    const systemInstruction = `Sos agent-ui-enhancer, el optimizador de prompts de Atlantis. 
+    Tu tarea es expandir una petición de UI simple en una especificación premium con variables HSL, fuentes modernas, transiciones y estructura semántica basada en el Engram que se te provee. 
+    Devuelve solo la especificación de diseño y el prompt expandido detallado.`;
+    
+    const prompt = `Petición original: "${request}"\n\nDirectrices de diseño del Engram:\n${engramRules}`;
+    
+    const enhancedResponse = await agent(
+      `${systemInstruction}\n\n${prompt}`,
+      { label: 'ui-enhancer', phase: 'Oráculo', effort: 'low' }
+    );
+    if (enhancedResponse) {
+      finalRequest = enhancedResponse.trim();
+      log('Oráculo', 'Prompt optimizado generado con éxito por el modelo.', colors.fgGreen);
+    }
+  } catch (err) {
+    log('Oráculo', `Error al llamar al Enhancer: ${err.message}. Usando petición original.`, colors.fgYellow);
+  }
+}
+
 // Corriente rápida: petición trivial que mapea a ≤1 lane se resuelve directo — sin Heraldos,
 // sin worktrees, sin Guardianes. Gate conservador: el Oráculo ya marcó standard ante
 // cualquier roce de seguridad/datos o ≥2 lanes.
@@ -379,7 +424,7 @@ if (!dryRun && complexity === 'trivial' && lanes.length <= 1) {
   const lane = lanes[0]
   log(`Corriente rápida (trivial${lane ? `, lane única ${lane.profile}` : ', sin lane'}): resuelvo directo. ${routed?.note ?? ''}`)
   const answer = await agent(
-    (lane ? `${lane.task}\n\n(Petición original: ${request})\n\n` : `${request}\n\n`) +
+    (lane ? `${lane.task}\n\nEspecificación de UI Enhancer:\n${finalRequest}\n\n(Petición original: ${request})\n\n` : `${finalRequest}\n\n`) +
     `Es una petición TRIVIAL en corriente rápida. Resolvé directo:\n` +
     `- Si es una PREGUNTA: contestala con lo que sabés del repo, conciso.\n` +
     `- Si es un fix mínimo de código: hacé el cambio en branch, NO abras PR, reportá branch + archivos.\n` +
@@ -425,12 +470,15 @@ phase('Artesanos')
 const DRYRUN_PREAMBLE =
   'MAREA BAJA (verificación): NO ejecutes side-effects. Prohibido crear worktrees, ramas, commits, ' +
   'PRs, issues, cards o escribir archivos. SOLO analizá y reportá qué HARÍAS (plan + archivos que tocarías + riesgos). Es un ensayo, no la corrida real.'
-const dispatched = await parallel(lanes.map(lane => () =>
-  agent(
-    `${lane.task}\n\n(Petición original: ${request})\n\n${dryRun ? DRYRUN_PREAMBLE : PREAMBLE}`,
+const dispatched = await parallel(lanes.map(lane => () => {
+  const taskPrompt = (lane.profile === 'agent-ui' || lane.profile === 'agent-front')
+    ? `${lane.task}\n\nEspecificación de UI Enhancer:\n${finalRequest}`
+    : lane.task;
+  return agent(
+    `${taskPrompt}\n\n(Petición original: ${request})\n\n${dryRun ? DRYRUN_PREAMBLE : PREAMBLE}`,
     { label: lane.profile, phase: 'Artesanos', agentType: lane.profile, ...(lane.model ? { model: lane.model } : {}) }
   ).then(out => ({ profile: lane.profile, task: lane.task, output: out, model: lane.model || null }))
-))
+}))
 
 const results = dispatched.filter(r => r && r.output)
 const failed = dispatched.filter(r => r && !r.output)
@@ -534,6 +582,37 @@ const synthesis = await agent(
   { label: 'decreto', phase: 'Decreto', effort: 'high' }
 )
 log('Decreto emitido.')
+
+// ACTUALIZACIÓN DINÁMICA DEL ENGRAM (Solo si no hay bloqueantes confirmados y es una tarea de UI)
+if (!verifiedBlockers.length && isUiTask && !dryRun) {
+  try {
+    const engramPath = path.join(process.cwd(), 'integrations/antigravity/engram/knowledge_base.md');
+    if (fs.existsSync(engramPath)) {
+      let engramContent = fs.readFileSync(engramPath, 'utf8');
+      
+      const engramPrompt = `Analizá la salida del flujo de Atlantis y extraé una lección de diseño UI/UX corta (una sola frase en formato de viñeta, comenzando con '*   *(Aprendizaje de Flujo)*').
+      Salida de artesanos:
+      ${producido}
+      
+      Hallazgos del crítico:
+      ${hallazgos}
+      
+      Generá solo la viñeta de lección aprendida, nada más.`;
+      
+      const lessonResult = await agent(engramPrompt, { label: 'engram-extractor', phase: 'Decreto', effort: 'low' });
+      if (lessonResult && lessonResult.trim().startsWith('*')) {
+        const splitContent = engramContent.split('## 📚 Lecciones Aprendidas (Evolución de Conocimiento)');
+        if (splitContent.length === 2) {
+          const updatedContent = `${splitContent[0]}## 📚 Lecciones Aprendidas (Evolución de Conocimiento)\n\n${lessonResult.trim()}\n${splitContent[1]}`;
+          fs.writeFileSync(engramPath, updatedContent, 'utf8');
+          log('Decreto', 'Base de conocimiento (Engram) actualizada exitosamente con nueva lección.', colors.fgGreen);
+        }
+      }
+    }
+  } catch (err) {
+    log('Decreto', `Error al actualizar el Engram: ${err.message}`, colors.fgYellow);
+  }
+}
 
 return {
   request,

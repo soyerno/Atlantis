@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔱 Oficina Virtual de Atlantis — Monitoreo Multi-Agente</title>
+  <meta name="description" content="Visualizador interactivo de los agentes de Atlantis y Firulapp en su oficina submarina.">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <!-- Animación de burbujas en el fondo -->
+  <div class="bubble-container" id="bubbleContainer"></div>
+
+  <!-- Contenedor Principal de la Aplicación -->
+  <div class="app-container">
+    
+    <!-- Encabezado con estética submarina -->
+    <header class="app-header">
+      <div class="header-logo">
+        <span class="trident-icon">🔱</span>
+        <div>
+          <h1>ATLANTIS</h1>
+          <p class="subtitle">Ciudad-Orquestadora de Agentes Virtuales</p>
+        </div>
+      </div>
+      <div class="system-status">
+        <span class="status-dot green"></span>
+        <span id="statusText">Marea Calma (Listo)</span>
+      </div>
+    </header>
+
+    <!-- Cuerpo de la aplicación -->
+    <main class="app-body">
+      
+      <!-- COLUMNA IZQUIERDA: PANEL DE CONTROL Y ROSTER -->
+      <section class="panel control-panel" id="panelControl">
+        <h2 class="panel-title">Salón del Trono (Control)</h2>
+        
+        <!-- Selección de requerimientos predefinidos -->
+        <div class="form-group">
+          <label for="presetSelect">Requerimientos Sugeridos:</label>
+          <select id="presetSelect">
+            <option value="">-- Seleccionar requerimiento --</option>
+            <option value="Crear un login moderno con glassmorphism para Firulapp">Crear Login Moderno (UI + Backend + Seguridad)</option>
+            <option value="Añadir buscador geolocalizado de perros perdidos en Firulapp">Buscador de Perros Perdidos (UI + Match + DB)</option>
+            <option value="Auditar la seguridad en el panel de administración de Firulapp y registrar logs">Auditar Seguridad General (Sec + Docs)</option>
+          </select>
+        </div>
+
+        <!-- Entrada de prompt libre -->
+        <div class="form-group">
+          <label for="promptInput">Petición en Lenguaje Natural:</label>
+          <textarea id="promptInput" placeholder="Ej. Crear el módulo de adopciones rápidas para refugios..."></textarea>
+        </div>
+
+        <button id="btnSimulate" class="btn btn-primary">Despachar la Ciudad (Iniciar Flujo)</button>
+        <button id="btnReset" class="btn btn-secondary">Limpiar Ciudad</button>
+
+        <hr class="divider">
+
+        <!-- Roster de Agentes Activos -->
+        <h3 class="roster-title">Agentes en la Ciudad</h3>
+        <div class="roster-list" id="rosterList">
+          <!-- Se cargan dinámicamente o se ponen inicialmente -->
+          <div class="roster-item" data-agent="agent-ui-enhancer">
+            <span class="agent-avatar-mini enhancer">🔮</span>
+            <div class="agent-info">
+              <h4>Oráculo (Enhancer)</h4>
+              <p>Optimizador de prompts</p>
+            </div>
+            <span class="agent-state idle">Inactivo</span>
+          </div>
+          <div class="roster-item" data-agent="agent-ui">
+            <span class="agent-avatar-mini ui">🎨</span>
+            <div class="agent-info">
+              <h4>Artesano UI</h4>
+              <p>Diseño de interfaces</p>
+            </div>
+            <span class="agent-state idle">Inactivo</span>
+          </div>
+          <div class="roster-item" data-agent="agent-firulapp-front">
+            <span class="agent-avatar-mini f-front">🐶</span>
+            <div class="agent-info">
+              <h4>Artesano Firulapp Front</h4>
+              <p>Mascotas & Adopción UI</p>
+            </div>
+            <span class="agent-state idle">Inactivo</span>
+          </div>
+          <div class="roster-item" data-agent="agent-firulapp-back">
+            <span class="agent-avatar-mini f-back">🐱</span>
+            <div class="agent-info">
+              <h4>Artesano Firulapp Back</h4>
+              <p>Base de datos & Match</p>
+            </div>
+            <span class="agent-state idle">Inactivo</span>
+          </div>
+          <div class="roster-item" data-agent="agent-firulapp-vet">
+            <span class="agent-avatar-mini f-vet">🩺</span>
+            <div class="agent-info">
+              <h4>Artesano Firulapp Vet</h4>
+              <p>Vacunas e historial clínico</p>
+            </div>
+            <span class="agent-state idle">Inactivo</span>
+          </div>
+          <div class="roster-item" data-agent="agent-firulapp-adoption">
+            <span class="agent-avatar-mini f-adoption">📋</span>
+            <div class="agent-info">
+              <h4>Artesano Firulapp Adopciones</h4>
+              <p>Formularios y refugios</p>
+            </div>
+            <span class="agent-state idle">Inactivo</span>
+          </div>
+          <div class="roster-item" data-agent="agent-ui-critic">
+            <span class="agent-avatar-mini critic">👿</span>
+            <div class="agent-info">
+              <h4>UI Critic (Diablo)</h4>
+              <p>Abogado del Diablo de UI</p>
+            </div>
+            <span class="agent-state idle">Inactivo</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLUMNA CENTRAL: MAPA VISUAL DE LA OFICINA (ATLANTIS DOMES) -->
+      <section class="map-section">
+        <div class="map-viewport">
+          
+          <!-- Domo 1: El Oráculo -->
+          <div class="dome dome-oracle" id="domeOracle">
+            <div class="dome-label">Domo del Oráculo</div>
+            <div class="dome-circle">🔮</div>
+            <div class="agent-node" id="nodeOracle" style="display: none;">
+              <div class="node-icon">🔮</div>
+              <div class="node-name">Oráculo</div>
+              <div class="speech-bubble" id="speechOracle">Analizando...</div>
+            </div>
+          </div>
+
+          <!-- Domo 2: Forja de Artesanos -->
+          <div class="dome dome-artisans" id="domeArtisans">
+            <div class="dome-label">Forja de Artesanos</div>
+            <div class="dome-circle-large">🔨</div>
+            <!-- Nodos de Artesanos en el Domo -->
+            <div class="artisans-container">
+              <div class="agent-node" id="nodeArtisanUi" style="display: none;">
+                <div class="node-icon">🎨</div>
+                <div class="node-name">UI Artisan</div>
+                <div class="speech-bubble" id="speechArtisanUi">Maquetando...</div>
+              </div>
+              <div class="agent-node" id="nodeFirulappFront" style="display: none;">
+                <div class="node-icon">🐶</div>
+                <div class="node-name">F-Front</div>
+                <div class="speech-bubble" id="speechFirulappFront">Codificando...</div>
+              </div>
+              <div class="agent-node" id="nodeFirulappBack" style="display: none;">
+                <div class="node-icon">🐱</div>
+                <div class="node-name">F-Back</div>
+                <div class="speech-bubble" id="speechFirulappBack">Conectando DB...</div>
+              </div>
+              <div class="agent-node" id="nodeFirulappVet" style="display: none;">
+                <div class="node-icon">🩺</div>
+                <div class="node-name">F-Vet</div>
+                <div class="speech-bubble" id="speechFirulappVet">Prescribiendo...</div>
+              </div>
+              <div class="agent-node" id="nodeFirulappAdoption" style="display: none;">
+                <div class="node-icon">📋</div>
+                <div class="node-name">F-Adop</div>
+                <div class="speech-bubble" id="speechFirulappAdoption">Contratos...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Domo 3: Faro de Guardianes -->
+          <div class="dome dome-guardians" id="domeGuardians">
+            <div class="dome-label">Faro de Guardianes (Auditoría)</div>
+            <div class="dome-circle">👁️</div>
+            <div class="agent-node" id="nodeDevilCritic" style="display: none;">
+              <div class="node-icon">👿</div>
+              <div class="node-name">Abogado del Diablo</div>
+              <div class="speech-bubble" id="speechDevilCritic">¡Eso se ve mal!</div>
+            </div>
+            <div class="agent-node" id="nodeGuardSecurity" style="display: none;">
+              <div class="node-icon">🛡️</div>
+              <div class="node-name">Guardia Seg</div>
+              <div class="speech-bubble" id="speechGuardSecurity">Escaneando...</div>
+            </div>
+          </div>
+
+          <!-- Domo 4: Tribunal de Jueces -->
+          <div class="dome dome-judges" id="domeJudges">
+            <div class="dome-label">Tribunal de Jueces</div>
+            <div class="dome-circle">⚖️</div>
+            <div class="judges-container">
+              <div class="agent-node" id="nodeMinos" style="display: none;">
+                <div class="node-icon">👹</div>
+                <div class="node-name">Minos</div>
+                <div class="speech-bubble" id="speechMinos">¿Veredicto?</div>
+              </div>
+              <div class="agent-node" id="nodeRadamantis" style="display: none;">
+                <div class="node-icon">💀</div>
+                <div class="node-name">Radamantis</div>
+                <div class="speech-bubble" id="speechRadamantis">Evaluando...</div>
+              </div>
+              <div class="agent-node" id="nodeEaco" style="display: none;">
+                <div class="node-icon">👽</div>
+                <div class="node-name">Éaco</div>
+                <div class="speech-bubble" id="speechEaco">Voto...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Domo 5: Pedestal del Decreto -->
+          <div class="dome dome-decree" id="domeDecree">
+            <div class="dome-label">Pedestal del Decreto</div>
+            <div class="dome-circle">📜</div>
+            <div class="agent-node" id="nodeDecreeScroll" style="display: none;">
+              <div class="node-icon">📜</div>
+              <div class="node-name">Decreto</div>
+              <div class="speech-bubble" id="speechDecree">¡Aprobado!</div>
+            </div>
+          </div>
+
+          <!-- Conexiones / Corrientes marinas entre Domos -->
+          <svg class="map-links">
+            <!-- Oráculo a Artesanos -->
+            <line x1="20%" y1="20%" x2="50%" y2="35%"></line>
+            <!-- Artesanos a Guardianes -->
+            <line x1="50%" y1="35%" x2="80%" y2="20%"></line>
+            <!-- Guardianes a Jueces -->
+            <line x1="80%" y1="20%" x2="70%" y2="75%"></line>
+            <!-- Jueces a Decreto -->
+            <line x1="70%" y1="75%" x2="30%" y2="75%"></line>
+            <!-- Decreto a Oráculo -->
+            <line x1="30%" y1="75%" x2="20%" y2="20%"></line>
+          </svg>
+        </div>
+      </section>
+
+      <!-- COLUMNA DERECHA: LOGS, DECRETO Y ENGRAM -->
+      <section class="panel right-panel" id="panelIntelligence">
+        <h2 class="panel-title">Sabiduría de la Ciudad (Datos)</h2>
+        
+        <!-- Pestañas para alternar pantallas -->
+        <div class="tab-container">
+          <button class="tab-btn active" id="tabTerminal">Terminal Log</button>
+          <button class="tab-btn" id="tabEngram">Design Engram</button>
+          <button class="tab-btn" id="tabDecree">Decreto Final</button>
+        </div>
+
+        <!-- Vista Pestaña 1: Terminal Log -->
+        <div class="tab-content" id="contentTerminal">
+          <div class="terminal-container">
+            <div class="terminal-header">
+              <span class="term-dot red"></span>
+              <span class="term-dot yellow"></span>
+              <span class="term-dot green"></span>
+              <span class="term-title">atlantis-harness.mjs</span>
+            </div>
+            <pre class="terminal-body" id="terminalLog">Esperando despacho de la ciudad de agentes...
+[Listo] Ingresa un prompt y haz clic en 'Despachar la Ciudad'.</pre>
+          </div>
+        </div>
+
+        <!-- Vista Pestaña 2: Design Engram -->
+        <div class="tab-content" id="contentEngram" style="display: none;">
+          <div class="engram-container">
+            <h3>Memoria Activa (Lecciones de Diseño)</h3>
+            <pre class="engram-body" id="engramViewer">Cargando base de conocimiento...</pre>
+          </div>
+        </div>
+
+        <!-- Vista Pestaña 3: Decreto Final -->
+        <div class="tab-content" id="contentDecree" style="display: none;">
+          <div class="decree-container">
+            <h3>Último Decreto Proclamado</h3>
+            <div class="decree-body" id="decreeViewer">No hay decretos emitidos en esta sesión.</div>
+          </div>
+        </div>
+
+      </section>
+      
+    </main>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>
