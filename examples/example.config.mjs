@@ -7,7 +7,8 @@
 // .claude/agents/.
 //
 // 14 Artesanos ruteables · 2 Guardianes always-on · 2 condicionales-por-front.
-// (El Guardián de seguridad ofensiva NO es Artesano ruteable: solo audita.)
+// (Los profiles `security` y `flags` son SOLO-Guardián: auditan, no se rutean como Artesanos —
+//  no están en `profiles`, solo en `guards`. El lens de `security` es DEFENSIVO, no ofensivo.)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default {

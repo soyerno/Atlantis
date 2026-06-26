@@ -4,6 +4,9 @@
   "description": "Atlantis — a config-driven multi-agent orchestrator for Claude Code. One natural-language petition is routed to expert Artisans, run isolated in parallel, audited by always-on Guardians, blockers weighed by the three Judges, and fused into one Decree.",
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "author": "Hernán (@soyerno)",
   "homepage": "https://github.com/soyerno/Atlantis#readme",
   "repository": {

@@ -32,6 +32,12 @@ export default {
       when: (lanes) => lanes.some(l => ['mi-front'].includes(l.profile)) },
   ],
 
+  // (2.b) JUECES (opcional) — roster de agentes que pesan cada 🔴 de un Guardián. Deben ser
+  //       INDEPENDIENTES del Guardián acusador (un Juez nunca juzga su propio hallazgo). Si lo
+  //       omitís, Atlantis usa los profiles de Artesanos/Guardianes disponibles, excluyendo al
+  //       acusador. Dalo solo si querés fijar quiénes juzgan.
+  // judges: ['mi-back', 'mi-security', 'mi-flow'],
+
   // (3) HERALDOS (opcional) — registro de arranque ANTES de despachar. null ⇒ se saltea.
   kickoff: {
     profile: 'mi-kickoff',
