@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/atlantis-banner.svg" alt="Atlantis — the orchestrator-city of agents for Claude Code" width="100%">
+  <img src="./assets/atlantis-banner-en.svg" alt="Atlantis — the orchestrator-city of agents for Claude Code" width="100%">
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@ So a request is split across **specialists with fresh context**, **audited** by 
 Six acts, each with its name and its craft. Config-driven; runs with Claude Code's `Workflow` tool.
 
 <p align="center">
-  <img src="./assets/architecture.svg" alt="The six acts of Atlantis" width="640">
+  <img src="./assets/architecture-en.svg" alt="The six acts of Atlantis" width="640">
 </p>
 
 | Act | In the city | What it actually does |
@@ -48,7 +48,6 @@ Six acts, each with its name and its craft. Config-driven; runs with Claude Code
 
 ---
 
-<<<<<<< HEAD
 ## Requirements and Compatibility
 
 ### A. Claude Code (Original)
@@ -65,28 +64,9 @@ Atlantis is also natively compatible with the **Antigravity (Gemini)** ecosystem
 
 ### With Claude Code
 
-=======
-## Requisitos y Compatibilidad
-
-### A. Claude Code (Original)
-- **Claude Code** con la herramienta `Workflow` disponible.
-- Uno o más **subagentes** (los Artesanos) definidos en `.claude/agents/`. Cada `profile` y cada `guard.profile` de tu config debe existir como un agente ahí — ver [`examples/agents/agent-docs.md`](./examples/agents/agent-docs.md) para la forma.
-- Nada de servidores, dependencias ni build. Atlantis es **un solo archivo** (`atlantis.mjs`).
-
-### B. Gemini / Antigravity (Soporte Nativo)
-Atlantis también es compatible de forma nativa con el ecosistema de **Antigravity (Gemini)**, utilizando su sistema de **Personalizaciones (Skills)** y la orquestación paralela de subagentes.
-- **Entorno Antigravity** activo.
-- Configuración de la skill local detallada en [`integrations/antigravity/`](./integrations/antigravity/).
-
-## Uso
-
-### Con Claude Code
-
-
-1. **Cloná** este repo (o copiá `atlantis.mjs` a tu repo).
-2. **Definí tu roster** editando el bloque `CONFIG` arriba de [`atlantis.mjs`](./atlantis.mjs). Los scripts de `Workflow` corren sandboxeados (sin filesystem), así que la config **vive inline** en el script. [`atlantis.config.example.mjs`](./atlantis.config.example.mjs) es la *forma* a pegar ahí.
-3. **Corré la ciudad** con la herramienta `Workflow`, pasando tu petición como `args`:
->>>>>>> origin/main
+1. **Clone** this repo (or copy `atlantis.mjs` to your repo).
+2. **Define your roster** by editing the `CONFIG` block at the top of [`atlantis.mjs`](./atlantis.mjs). Workflow scripts run sandboxed (no filesystem), so the config **lives inline** in the script. [`atlantis.config.example.mjs`](./atlantis.config.example.mjs) is the template to paste there.
+3. **Run the city** with the `Workflow` tool, passing your request as `args`:
 
 ```js
 Workflow({ scriptPath: 'atlantis.mjs', args: 'fix the back button on the map' })

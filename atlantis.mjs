@@ -78,6 +78,9 @@ if (!Object.keys(PROFILES).length) {
 const dryRun = (typeof ARGS === 'object' && ARGS?.dryRun === true) || CONFIG.dryRun === true
 if (dryRun) log('MAREA BAJA (dry-run): sin Heraldos, Artesanos en modo-reporte (cero side-effects).')
 
+const useFreeModels = (typeof ARGS === 'object' && ARGS?.freeModels === true) || CONFIG.useFreeModels === true || (typeof process !== 'undefined' && process.argv && (process.argv.includes('--free-models') || process.argv.includes('-f')));
+if (useFreeModels) log('MODELOS GRATUITOS: Se forzará el uso de modelos gratuitos (gemini-1.5-flash / gemini-2.5-flash).')
+
 const ROUTE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -121,6 +124,16 @@ const colors = {
   bgCyan: '\x1b[46m',
 };
 
+const mapModelInput = (val, current) => {
+  const clean = val.trim();
+  if (!clean) return current;
+  if (clean === '1') return 'gemini-1.5-flash';
+  if (clean === '2') return 'gemini-2.5-flash';
+  if (clean === '3') return 'gemini-1.5-pro';
+  if (clean === '4') return 'gemini-2.5-pro';
+  return clean;
+};
+
 async function confirmLanes(lanes) {
   if (!process.stdin.isTTY) {
     log('Oráculo', 'Entorno no interactivo detectado. Procediendo con el ruteo automático...');
@@ -145,7 +158,7 @@ async function confirmLanes(lanes) {
     });
     console.log(`====================================================`);
 
-    console.log(`Opciones: [c] Confirmar y continuar | [e] Editar lane | [a] Agregar lane | [d] Eliminar lane | [x] Cancelar`);
+    console.log(`Opciones: [c] Confirmar | [e] Editar lane | [a] Agregar lane | [d] Eliminar lane | [f] Forzar modelos gratuitos | [x] Cancelar`);
     const ans = (await question('Selecciona una opción [c]: ')).trim().toLowerCase() || 'c';
 
     if (ans === 'c') {
@@ -155,6 +168,11 @@ async function confirmLanes(lanes) {
       rl.close();
       log('Oráculo', 'Ejecución cancelada por el usuario.', colors.fgRed);
       process.exit(0);
+    } else if (ans === 'f') {
+      lanes.forEach(lane => {
+        lane.model = lane.score <= 2 ? 'gemini-1.5-flash' : 'gemini-2.5-flash';
+      });
+      console.log("Se han forzado modelos gratuitos para todos los artesanos.");
     } else if (ans === 'a') {
       console.log(`\n--- AGREGAR NUEVO ARTESANO ---`);
       const profile = await question(`Nombre del perfil (disponibles: ${Object.keys(PROFILES).join(', ')}): `);
@@ -166,7 +184,13 @@ async function confirmLanes(lanes) {
       const reason = await question(`Razón de la selección: `);
       const scoreInput = await question(`Score de dificultad (1-5) [3]: `);
       const score = parseInt(scoreInput.trim(), 10) || 3;
-      const model = await question(`Modelo recomendado [gemini-1.5-pro]: `) || 'gemini-1.5-pro';
+      
+      console.log(`Sugerencias de modelos:`);
+      console.log(`  [Gratuitos]  1: gemini-1.5-flash | 2: gemini-2.5-flash`);
+      console.log(`  [Estándar]   3: gemini-1.5-pro   | 4: gemini-2.5-pro`);
+      const modelInput = await question(`Modelo recomendado [gemini-1.5-pro]: `);
+      const model = mapModelInput(modelInput, 'gemini-1.5-pro');
+      
       lanes.push({ profile, task, reason, score, model });
     } else if (ans === 'd') {
       const idxInput = await question(`Número del artesano a eliminar (1-${lanes.length}): `);
@@ -190,8 +214,12 @@ async function confirmLanes(lanes) {
         const newScoreInput = await question(`Score [${lane.score || 3}]: `);
         const newScore = parseInt(newScoreInput.trim(), 10);
         if (!isNaN(newScore)) lane.score = newScore;
-        const newModel = await question(`Modelo [${lane.model || 'gemini-1.5-pro'}]: `);
-        if (newModel.trim()) lane.model = newModel.trim();
+        
+        console.log(`Sugerencias de modelos:`);
+        console.log(`  [Gratuitos]  1: gemini-1.5-flash | 2: gemini-2.5-flash`);
+        console.log(`  [Estándar]   3: gemini-1.5-pro   | 4: gemini-2.5-pro`);
+        const newModelInput = await question(`Modelo [${lane.model || 'gemini-1.5-pro'}]: `);
+        lane.model = mapModelInput(newModelInput, lane.model || 'gemini-1.5-pro');
       } else {
         console.log(`Índice inválido.`);
       }
@@ -221,7 +249,7 @@ async function confirmGuards(guardsList) {
     });
     console.log(`====================================================`);
 
-    console.log(`Opciones: [c] Confirmar y continuar | [e] Editar guardián | [a] Agregar guardián | [d] Eliminar guardián | [x] Cancelar`);
+    console.log(`Opciones: [c] Confirmar | [e] Editar guardián | [a] Agregar guardián | [d] Eliminar guardián | [f] Forzar modelos gratuitos | [x] Cancelar`);
     const ans = (await question('Selecciona una opción [c]: ')).trim().toLowerCase() || 'c';
 
     if (ans === 'c') {
@@ -231,12 +259,23 @@ async function confirmGuards(guardsList) {
       rl.close();
       log('Guardianes', 'Ejecución cancelada por el usuario.', colors.fgRed);
       process.exit(0);
+    } else if (ans === 'f') {
+      guardsList.forEach(guard => {
+        guard.model = 'gemini-1.5-flash';
+      });
+      console.log("Se han forzado modelos gratuitos para todos los guardianes.");
     } else if (ans === 'a') {
       console.log(`\n--- AGREGAR NUEVO GUARDIÁN ---`);
       const profile = await question(`Nombre del perfil (ej. agent-security): `);
       const lens = await question(`Lente (ej. SEGURIDAD): `);
       const focus = await question(`Enfoque de auditoría: `);
-      const model = await question(`Modelo recomendado [gemini-1.5-pro]: `) || 'gemini-1.5-pro';
+      
+      console.log(`Sugerencias de modelos:`);
+      console.log(`  [Gratuitos]  1: gemini-1.5-flash | 2: gemini-2.5-flash`);
+      console.log(`  [Estándar]   3: gemini-1.5-pro   | 4: gemini-2.5-pro`);
+      const modelInput = await question(`Modelo recomendado [gemini-1.5-pro]: `);
+      const model = mapModelInput(modelInput, 'gemini-1.5-pro');
+      
       guardsList.push({ profile, lens, focus, model });
     } else if (ans === 'd') {
       const idxInput = await question(`Número del guardián a eliminar (1-${guardsList.length}): `);
@@ -257,8 +296,12 @@ async function confirmGuards(guardsList) {
         if (newLens.trim()) guard.lens = newLens.trim();
         const newFocus = await question(`Enfoque [${guard.focus}]: `);
         if (newFocus.trim()) guard.focus = newFocus.trim();
-        const newModel = await question(`Modelo [${guard.model || 'gemini-1.5-pro'}]: `);
-        if (newModel.trim()) guard.model = newModel.trim();
+        
+        console.log(`Sugerencias de modelos:`);
+        console.log(`  [Gratuitos]  1: gemini-1.5-flash | 2: gemini-2.5-flash`);
+        console.log(`  [Estándar]   3: gemini-1.5-pro   | 4: gemini-2.5-pro`);
+        const newModelInput = await question(`Modelo [${guard.model || 'gemini-1.5-pro'}]: `);
+        guard.model = mapModelInput(newModelInput, guard.model || 'gemini-1.5-pro');
       } else {
         console.log(`Índice inválido.`);
       }
@@ -322,6 +365,11 @@ const routed = await agent(
 )
 
 let lanes = (routed?.lanes ?? []).filter(l => PROFILES[l.profile])
+if (useFreeModels) {
+  lanes.forEach(l => {
+    l.model = l.score <= 2 ? 'gemini-1.5-flash' : 'gemini-2.5-flash';
+  });
+}
 const complexity = routed?.complexity === 'trivial' ? 'trivial' : 'standard'
 
 // Corriente rápida: petición trivial que mapea a ≤1 lane se resuelve directo — sin Heraldos,
@@ -398,7 +446,7 @@ const producido = results.length
 const GUARDS_INITIAL = GUARDS_CFG
   .filter(g => g.always || (typeof g.when === 'function' && g.when(lanes)))
   .filter(g => !alreadyRouted.has(g.profile))
-  .map(g => ({ ...g, model: g.model || 'gemini-1.5-pro' }))
+  .map(g => ({ ...g, model: useFreeModels ? 'gemini-1.5-flash' : (g.model || 'gemini-1.5-pro') }))
 
 const GUARDS = await confirmGuards(GUARDS_INITIAL)
 
